@@ -1,0 +1,21 @@
+# Benchmark / Games
+pyyaml==6.0 # Logging
+numpy==1.24.3 # Score computation
+nltk==3.8.1 # Taboo
+spacy==3.5.3 # Taboo
+tiktoken==0.4.0 # Wordle
+# Evaluation
+scikit-learn==1.2.2
+matplotlib==3.7.1
+pandas==2.0.1
+seaborn==0.12.2
+jupyter==1.0.0
+# Backends
+retry==0.9.2 # API call utility
+aleph-alpha-client==3.1.0
+openai==0.27.2
+anthropic==0.2.6
+# Slurk Integration
+python-engineio==4.4.0
+python-socketio==5.7.2
+websocket-client
