@@ -49,6 +49,10 @@ class Player(abc.ABC):
             prompt, response, response_text = messages, {"response": "human"}, \
                 self._terminal_response(messages, turn_idx)
         else:
+            if self.remote is None:
+                raise AttributeError("No remote model initialized for player: " + self.get_description() + "."
+                                     + " You probably tried to load a Player with a backend"
+                                       " that is not available or could not be loaded.")
             prompt, response, response_text = self.remote.generate_response(messages, self.model_name)
         call_duration = datetime.now() - call_start
         response["duration"] = str(call_duration)

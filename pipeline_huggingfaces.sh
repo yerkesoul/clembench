@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage: ./pipeline_huggingfaces.sh
-# Preparation: ./setup.sh && ./setup_hf.sh
+# Preparation: ./setup.sh
 echo
 echo "==================================================="
 echo " PIPELINE: Starting $0"

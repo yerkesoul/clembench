@@ -84,12 +84,12 @@ else:
 def lookup_by_model_name(remote_model_name: str) -> Backend:
     """
     :param remote_model_name: the model name for which a supporting backend has to be found
-    :return: first backend found that supports the model; if no backend found a ValueError is thrown
+    :return: first backend found that supports the model; otherwise None
     """
     for backend in _loaded_backends:
         if backend.supports(remote_model_name):
             return backend
-    raise ValueError("No backend found for remote model: " + remote_model_name)
+    return None
 
 
 def configure(fn_apply: Callable[[Backend], None]):

@@ -4,15 +4,22 @@ Every episode produces its own records of the interaction, which is saved as
 ```interactions.json``` in the episode folder inside the ```<gamename>/records```
 directory.
 
-Information can be logged via the ```log_*``` methods of GameMaster.
+The game master should log every action that is necessary to score the game,
+generate the dialogue transcripts and other relevant information for 
+posterior inspection of the interaction.
 
-Every game master is responsible for logging the following information:
+This is taken care of by the ```GameRecorder``` class, which has methods to log
+various types of information.
 
-- ```players```: description of the players in this episode, used as reference in ```interactions```
-- ```turns```: a sequence of turns which group the actions performed by the GameMaster and Players
+- ```log_event```: must be called to log every action; see details below.
+- ```log_next_turn```: must be called at the beginning of every game turn; 
+what a turn means is a decision of the game designer.
+- ```log_players```: must be called once, in the game setup, to
+log the description of the agents playing each role in the game.
+- ```log_key```: can be optionally used to log game-specific keys and values.
+- ```log_turn_score```: should be called in the scoring method to log turn-level scores.
+- ```log_episode_score```: should be called in the scoring method to log episode-level scores.
 
-These items are mandatory. The game master can also opt to log other
-information using the method ```log_key```.
 
 ## Logging Players
 
@@ -26,8 +33,8 @@ the other players. These identifiers for players are also used in the
 
 ## Logging Interaction
 
-An interaction is a list, in choronological order, of the actions made by the
-game master. Such actions should be logged by the GameMaster using its 
+An interaction is a list of lists, in choronological order, of the actions made by the
+game master. Such actions should be logged by the GameMaster using the 
 ```log_event``` method which also logs the timestamp. 
 
 An event can be only an action or an action and a corresponding API call 
@@ -67,61 +74,65 @@ look like:
     "Player 2": "human"
   },
   "turns": [
-    {
-      "timestamp": "timestamp_1",
-      "from": "GM",
-      "to": "Player 1",
-      "action": {
-        "type": "send message",
-        "content": "this is a message from GM to Player 1."
+    [
+      {
+        "timestamp": "timestamp_1",
+        "from": "GM",
+        "to": "Player 1",
+        "action": {
+          "type": "send message",
+          "content": "this is a message from GM to Player 1."
+        }
+      },
+      {
+        "timestamp": "timestamp",
+        "from": "Player 1",
+        "to": "GM",
+        "action": {
+          "type": "get message",
+          "content": "this is a message from GM to Player 1."
+        }
+      },
+      {
+        "timestamp": "timestamp",
+        "from": "GM",
+        "to": "GM",
+        "action": {
+          "type": "parse",
+          "content": "this is a parsed response from Player 1 to GM.",
+          "other_key": "other_value"
+        }
       }
-    },
-    {
-      "timestamp": "timestamp",
-      "from": "Player 1",
-      "to": "GM",
-      "action": {
-        "type": "get message",
-        "content": "this is a message from GM to Player 1."
+    ],
+    [
+      {
+        "timestamp": "timestamp",
+        "from": "GM",
+        "to": "GM",
+        "action": {
+          "type": "metadata",
+          "content": "metadata not visible to players but added to transcript"
+        }
+      },
+      {
+        "timestamp": "timestamp_2",
+        "from": "GM",
+        "to": "Player 2",
+        "action": {
+          "type": "send message",
+          "content": "this is a message from GM to Player 2."
+        }
+      },
+      {
+        "timestamp": "timestamp",
+        "from": "Player 2",
+        "to": "GM",
+        "action": {
+          "type": "get message",
+          "content": "this is a message Player 2 to GM."
+        }
       }
-    },
-    {
-      "timestamp": "timestamp",
-      "from": "GM",
-      "to": "GM",
-      "action": {
-        "type": "parse",
-        "content": "this is a parsed response from Player 1 to GM.",
-        "other_key": "other_value"
-      }
-    },
-    {
-      "timestamp": "timestamp",
-      "from": "GM",
-      "to": "GM",
-      "action": {
-        "type": "metadata",
-        "content": "metadata not visible to players but added to transcript"
-      }
-    },
-    {
-      "timestamp": "timestamp_2",
-      "from": "GM",
-      "to": "Player 2",
-      "action": {
-        "type": "send message",
-        "content": "this is a message from GM to Player 2."
-      }
-    },
-    {
-      "timestamp": "timestamp",
-      "from": "Player 2",
-      "to": "GM",
-      "action": {
-        "type": "get message",
-        "content": "this is a message Player 2 to GM."
-      }
-    }
+    ]
   ]
 }
 ```
@@ -137,9 +148,9 @@ just simple be logged by the GameMaster without further interference.
 For that, use the optional ```call``` argument in ```log_event``` to log the
 call with the same timestamp and an action.
 
-The calls will be stored in a `request.json` that containts the raw inputs and outputs of calls made to APIs.
+The calls will be stored in a ```requests.json``` that containts the raw inputs and outputs of calls made to APIs.
 
-Here is an example of how the ```request.json``` file of an episode will look like:
+Here is an example of how the requests file of an episode will look like:
 
 ```json
 [
@@ -166,7 +177,7 @@ Use ```log_turn_score``` to log a score name and its value for a given turn inde
 and ```log_episode_score``` to log a score name and its value for the whole
 episode. Episode scores are usually a measure of game success.
 
-The score results will be stored to `score.json` which contains:
+The score results will be stored to ```scores.json``` which contains:
 - ```turn scores```: the turn-level scores for each game turn.
 - ```episode scores```: the episode-level scores for the episode.
 

@@ -1,10 +1,9 @@
 from typing import List, Dict, Tuple, Any
 import torch
 import anthropic
-import requests
 import backends
 from transformers import T5Tokenizer, T5ForConditionalGeneration
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM, GPTNeoXForCausalLM
+from transformers import AutoTokenizer, pipeline,  AutoModelForCausalLM, GPTNeoXForCausalLM
 
 logger = backends.get_logger(__name__)
 
@@ -62,6 +61,7 @@ class HuggingfaceLocal(backends.Backend):
             )
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model_pipeline = pipeline('text-generation', tokenizer=self.tokenizer, model=self.model, device_map="auto")
         self.model_name = model_name
         self.model_loaded = True
 
@@ -123,13 +123,41 @@ class HuggingfaceLocal(backends.Backend):
         if self.temperature == 0:
             self.temperature += 0.01
 
-        input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True).input_ids.to(self.device)
-        tokens = self.model.generate(input_ids, max_new_tokens=100, do_sample=True, temperature=self.temperature)
-        response_text = self.tokenizer.decode(tokens[0]).replace(prompt_text, '').replace('<pad>', '').replace('<s>','').replace('</s>', '').replace(
-            '<|endoftext|>', '').strip()
+        pipeline_output = self.model_pipeline(f"{prompt_text}",
+                            temperature=self.temperature,
+                            max_new_tokens=100,
+                            return_full_text=False,
+                            do_sample=True)
 
-        response = {'response': response_text}
+        generated_text = pipeline_output[0]['generated_text']
 
+        response_text = generated_text.replace(prompt_text, '')\
+            .replace('<pad>', '')\
+            .replace('<s>', '')\
+            .replace('</s>','')\
+            .replace('<|endoftext|>', '')\
+            .replace('<|assistant|>','').strip()
+
+
+        # input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True).input_ids.to(self.device)
+        # tokens = self.model.generate(input_ids, max_new_tokens=100, do_sample=True, temperature=self.temperature)
+        # decoded_text = self.tokenizer.decode(tokens[0])
+        #
+        # if 'oasst' in self.model_name:
+        #     start_index = decoded_text.rfind('<|assistant|>')+len('<|assistant|>')
+        #     response_text = decoded_text[start_index:].replace('<|assistant|>', '')
+        # elif 'falcon' in self.model_name:
+        #     start_index = decoded_text.rfind('<|assistant|>') + len('<|assistant|>')
+        #     response_text = decoded_text[start_index:].replace('<|assistant|>', '')
+        # else:
+        #     start_index = decoded_text.rfind(anthropic.AI_PROMPT) + len(anthropic.AI_PROMPT)
+        #     response_text = decoded_text[start_index:].replace(anthropic.AI_PROMPT, '')
+        #
+        #
+        # response_text = response_text.replace(prompt_text, '').replace('<pad>', '').replace('<s>','').replace('</s>', '').replace(
+        #     '<|endoftext|>', '').strip()
+
+        response = {'response': generated_text}
         return prompt, response, response_text
 
     def supports(self, model_name: str):

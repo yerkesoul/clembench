@@ -38,13 +38,23 @@ class AlephAlpha(backends.Backend):
         """
         assert 0.0 <= self.temperature <= 1.0, "Temperature must be in [0.,1.]"
         prompt_text = ''
-        for message in messages:
-            if message['role'] == 'assistant':
-                prompt_text += f'{anthropic.AI_PROMPT} {message["content"]}'
-            elif message['role'] == 'user':
-                prompt_text += f'{anthropic.HUMAN_PROMPT} {message["content"]}'
 
-        prompt_text += anthropic.AI_PROMPT
+        if 'control' in model:
+            for message in messages:
+                content = message["content"]
+                if message['role'] == 'assistant':
+                    prompt_text += '### Response:' + content
+                elif message['role'] == 'user':
+                    prompt_text += '### Instruction:' + content
+        else:
+
+            for message in messages:
+                if message['role'] == 'assistant':
+                    prompt_text += f'{anthropic.AI_PROMPT} {message["content"]}'
+                elif message['role'] == 'user':
+                    prompt_text += f'{anthropic.HUMAN_PROMPT} {message["content"]}'
+
+            prompt_text += anthropic.AI_PROMPT
 
         params = {
             "prompt": aleph_alpha_client.Prompt.from_text(prompt_text),

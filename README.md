@@ -7,194 +7,217 @@ This repository contains the code for setting up the framework and implements a 
 
 > Chalamalasetti, K., Götze, J., Hakimov, S., Madureira, B., Sadler, P., & Schlangen, D. (2023). clembench: Using Game Play to Evaluate Chat-Optimized Language Models as Conversational Agents (arXiv:2305.13455). arXiv. https://doi.org/10.48550/arXiv.2305.13455
 
-### Results Overview
+## Evaluation Results
 
-For each model (pairing), shows how many games were played to completion (%
-played), an indicator of rule-following capabilities. “qlty score” indicates how well the completed games were
-played (higher is better, max is 100). all is the average over all games scores, the remaining columns show results
-broken down by game (averaged over all episodes)
+### Overall Results
 
-<table class="dataframe">
-  <thead>
+We have evaluated the following models and games:
+
+<table border="1" class="dataframe">
+    <thead>
     <tr style="text-align: right;">
-      <th>model</th>
-      <th>game:</th>
-      <th>all</th>
-      <th>drawing</th>
-      <th>priv/sh</th>
-      <th>reference</th>
-      <th>taboo</th>
-      <th>wordle</th>
-      <th>wordle+cl</th>
-      <th>wordle+cl+cr</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th rowspan="2" valign="top">lm/lm</th>
-      <th>% played</th>
-      <td>16.67</td>
-      <td>0.0 </td>
-      <td>0.0 </td>
-      <td>0.0 </td>
-      <td>0.0 </td>
-      <td>100.0 </td>
-      <td>6.67 </td>
-      <td>10.0 </td>
+        <th></th>
+        <th>model</th>
+        <th>claude-v1.3-t0.0--claude-v1.3-t0.0</th>
+        <th>gpt-3.5-turbo-t0.0--gpt-3.5-turbo-t0.0</th>
+        <th>gpt-3.5-turbo-t0.0--gpt-4-t0.0</th>
+        <th>gpt-4-t0.0--gpt-3.5-turbo-t0.0</th>
+        <th>gpt-4-t0.0--gpt-4-t0.0</th>
+        <th>luminous-supreme-t0.0--luminous-supreme-t0.0</th>
+        <th>text-davinci-003-t0.0--text-davinci-003-t0.0</th>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td>0.00</td>
-      <td>/</td>
-      <td>/</td>
-      <td>/</td>
-      <td>/</td>
-      <td>0.0 </td>
-      <td>0.0 </td>
-      <td>0.0 </td>
+        <th>activity</th>
+        <th>metric</th>
+        <th></th>
+        <th></th>
+        <th></th>
+        <th></th>
+        <th></th>
+        <th></th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th rowspan="3" valign="top">imagegame</th>
+        <th>Aborted Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.3 (0.46)</td>
+        <td>0.94 (0.23)</td>
+        <td>0.94 (0.23)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th rowspan="2" valign="top">cl/cl</th>
-      <th>% played</th>
-      <td>63.81</td>
-      <td>0.0 </td>
-      <td>100.0 </td>
-      <td>100.0 </td>
-      <td>0.0 </td>
-      <td>100.0 </td>
-      <td>96.67 </td>
-      <td>50.0 </td>
+        <th>F1</th>
+        <td>0.0 (0.0)</td>
+        <td>0.47 (0.37)</td>
+        <td>0.52 (0.4)</td>
+        <td>0.03 (0.15)</td>
+        <td>0.06 (0.23)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.34 (0.29)</td>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td>43.77</td>
-      <td>/</td>
-      <td>60.27 (24.65)</td>
-      <td>88.89 (31.87)</td>
-      <td>/</td>
-      <td>0.0 </td>
-      <td>40.8 (46.42)</td>
-      <td>28.89 (36.44)</td>
+        <th>Success Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.1 (0.3)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.06 (0.23)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th rowspan="2" valign="top">3/3</th>
-      <th>% played</th>
-      <td>47.86</td>
-      <td>65.0 </td>
-      <td>10.0 </td>
-      <td>83.33 </td>
-      <td>23.33 </td>
-      <td>73.33 </td>
-      <td>46.67 </td>
-      <td>33.33 </td>
+        <th rowspan="4" valign="top">privateshared</th>
+        <th>Aborted Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.0 (0.0)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td>38.09</td>
-      <td>44.77 (25.59)</td>
-      <td>55.32 (19.65)</td>
-      <td>63.33 (49.01)</td>
-      <td>14.29 (37.8)</td>
-      <td>0.0 </td>
-      <td>46.43 (41.44)</td>
-      <td>42.5 (50.07)</td>
+        <th>Kappa</th>
+        <td>0.49 (0.26)</td>
+        <td>0.42 (0.21)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.68 (0.12)</td>
+        <td>0.2 (0.16)</td>
+        <td>0.12 (0.21)</td>
     </tr>
     <tr>
-      <th rowspan="2" valign="top">3.5/3.5</th>
-      <th>% played</th>
-      <td>87.98</td>
-      <td>97.5 </td>
-      <td>85.0 </td>
-      <td>100.0 </td>
-      <td>56.67 </td>
-      <td>100.0 </td>
-      <td>90.0 </td>
-      <td>86.67 </td>
+        <th>Slot-Filling-Accuracy</th>
+        <td>0.94 (0.13)</td>
+        <td>0.98 (0.06)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.95 (0.11)</td>
+        <td>0.77 (0.31)</td>
+        <td>0.96 (0.08)</td>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td>36.02</td>
-      <td>65.41 (25.32)</td>
-      <td>56.72 (27.75)</td>
-      <td>66.67 (47.81)</td>
-      <td>29.41 (46.97)</td>
-      <td>0.0 </td>
-      <td>18.52 (39.58)</td>
-      <td>15.38 (26.21)</td>
+        <th>Success Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.0 (0.0)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th rowspan="2" valign="top">3.5/4</th>
-      <th>% played</th>
-      <td><strong>94.03</strong></td>
-      <td>97.5</td>
-      <td>/</td>
-      <td>100.0 </td>
-      <td>86.67 </td>
-      <td>100.0 </td>
-      <td>90.0 </td>
-      <td>90.0 </td>
+        <th rowspan="2" valign="top">referencegame</th>
+        <th>Aborted Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td>34.68</td>
-      <td>70.28 (24.08)</td>
-      <td>/</td>
-      <td>72.22 (45.43)</td>
-      <td>28.85 (40.43)</td>
-      <td>0.0 </td>
-      <td>18.52 (39.58)</td>
-      <td>18.21 (29.51)</td>
+        <th>Success Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.67 (0.48)</td>
+        <td>0.61 (0.49)</td>
+        <td>0.75 (0.44)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th rowspan="2" valign="top">4/3.5</th>
-      <th>% played</th>
-      <td>87.78</td>
-      <td>80.0 </td>
-      <td>/</td>
-      <td>100.0 </td>
-      <td>46.67 </td>
-      <td>100.0 </td>
-      <td>100.0 </td>
-      <td>100.0 </td>
+        <th rowspan="2" valign="top">taboo</th>
+        <th>Speed</th>
+        <td>4.0 (0.0)</td>
+        <td>3.5 (1.14)</td>
+        <td>3.17 (1.23)</td>
+        <td>2.6 (1.52)</td>
+        <td>2.6 (1.43)</td>
+        <td>4.0 (0.0)</td>
+        <td>3.9 (0.55)</td>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td>56.01</td>
-      <td>79.47 (23.93)</td>
-      <td>/</td>
-      <td>61.11 (49.44)</td>
-      <td>96.43 (13.36)</td>
-      <td>3.56 (9.55)</td>
-      <td>47.06 (42.27)</td>
-      <td>48.44 (45.27)</td>
+        <th>Success Ratio</th>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
+        <td>0.33 (0.48)</td>
+        <td>0.47 (0.51)</td>
+        <td>0.53 (0.51)</td>
+        <td>nan (nan)</td>
+        <td>nan (nan)</td>
     </tr>
     <tr>
-      <th rowspan="2" valign="top">4/4</th>
-      <th>% played</th>
-      <td>93.81</td>
-      <td>80.0 </td>
-      <td>100.0 </td>
-      <td>100.0 </td>
-      <td>76.67 </td>
-      <td>100.0 </td>
-      <td>100.0 </td>
-      <td>100.0 </td>
+        <th rowspan="2" valign="top">wordle</th>
+        <th>Aborted Ratio</th>
+        <td>0.03 (0.18)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.43 (0.5)</td>
     </tr>
     <tr>
-      <th>qlty score</th>
-      <td><strong>60.59</strong></td>
-      <td>92.09 (12.04)</td>
-      <td>78.55 (9.74)</td>
-      <td>77.78 (42.16)</td>
-      <td>73.19 (37.18)</td>
-      <td>4.56 (10.59)</td>
-      <td>47.89 (41.55)</td>
-      <td>50.11 (44.98)</td>
+        <th>Success Ratio</th>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.17 (0.38)</td>
+        <td>0.2 (0.41)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
     </tr>
-  </tbody>
+    <tr>
+        <th rowspan="2" valign="top">wordle_withclue</th>
+        <th>Aborted Ratio</th>
+        <td>0.03 (0.18)</td>
+        <td>0.17 (0.38)</td>
+        <td>0.1 (0.31)</td>
+        <td>0.03 (0.18)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.93 (0.25)</td>
+        <td>0.63 (0.49)</td>
+    </tr>
+    <tr>
+        <th>Success Ratio</th>
+        <td>0.5 (0.51)</td>
+        <td>0.27 (0.45)</td>
+        <td>0.13 (0.35)</td>
+        <td>0.67 (0.48)</td>
+        <td>0.67 (0.48)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.23 (0.43)</td>
+    </tr>
+    <tr>
+        <th rowspan="2" valign="top">wordle_withcritic</th>
+        <th>Aborted Ratio</th>
+        <td>0.53 (0.51)</td>
+        <td>0.23 (0.43)</td>
+        <td>0.2 (0.41)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.9 (0.31)</td>
+        <td>0.73 (0.45)</td>
+    </tr>
+    <tr>
+        <th>Success Ratio</th>
+        <td>0.23 (0.43)</td>
+        <td>0.17 (0.38)</td>
+        <td>0.3 (0.47)</td>
+        <td>0.6 (0.5)</td>
+        <td>0.63 (0.49)</td>
+        <td>0.0 (0.0)</td>
+        <td>0.2 (0.41)</td>
+    </tr>
+    </tbody>
 </table>
-
-Date of data collection: 19.05.2023 (v1)
 
 ### Game details
 

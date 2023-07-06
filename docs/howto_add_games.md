@@ -14,7 +14,7 @@ The `GameMaster` does
 - access all relevant resources via `load_file()` or `load_json()`
 - `setup()` the concrete games instances
 - coordinate the `play()` of the game instances (up to multiple episodes)
-- record the game episodes
+- record the game episodes (see ```logdoc.md``` for details)
 - call a `GameEvaluator` to `evaluate()` the game records XXX still-correct?
 
 The `GameMaster` must implement the following methods:

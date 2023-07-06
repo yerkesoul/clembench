@@ -94,9 +94,7 @@ for game in "${games[@]}"; do
     fi
   done
 done
-if $do_parallel; then
-  echo "========================================================================="
-  echo "All sessions started. Wait for the runtime.<game>.<model_pair>.log files."
-  echo "You can use 'killall screen' before running this script again."
-  echo "========================================================================="
-fi
+echo "========================================================================="
+echo "All sessions started. Wait for the runtime.<game>.<model_pair>.log files."
+echo "You can use 'killall screen' before running this script again."
+echo "========================================================================="
