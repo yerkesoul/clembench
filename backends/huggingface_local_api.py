@@ -138,25 +138,6 @@ class HuggingfaceLocal(backends.Backend):
             .replace('<|endoftext|>', '')\
             .replace('<|assistant|>','').strip()
 
-
-        # input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True).input_ids.to(self.device)
-        # tokens = self.model.generate(input_ids, max_new_tokens=100, do_sample=True, temperature=self.temperature)
-        # decoded_text = self.tokenizer.decode(tokens[0])
-        #
-        # if 'oasst' in self.model_name:
-        #     start_index = decoded_text.rfind('<|assistant|>')+len('<|assistant|>')
-        #     response_text = decoded_text[start_index:].replace('<|assistant|>', '')
-        # elif 'falcon' in self.model_name:
-        #     start_index = decoded_text.rfind('<|assistant|>') + len('<|assistant|>')
-        #     response_text = decoded_text[start_index:].replace('<|assistant|>', '')
-        # else:
-        #     start_index = decoded_text.rfind(anthropic.AI_PROMPT) + len(anthropic.AI_PROMPT)
-        #     response_text = decoded_text[start_index:].replace(anthropic.AI_PROMPT, '')
-        #
-        #
-        # response_text = response_text.replace(prompt_text, '').replace('<pad>', '').replace('<s>','').replace('</s>', '').replace(
-        #     '<|endoftext|>', '').strip()
-
         response = {'response': generated_text}
         return prompt, response, response_text
 
