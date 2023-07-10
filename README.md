@@ -30,7 +30,7 @@ We have evaluated the following models and games:
   </thead>
   <tbody>
     <tr>
-      <th>lm/lm</th>
+      <th rowspan="2" valign="top">lm/lm (0.00) </th>
       <th>% played</th>
       <td>16.24</td>
       <td>0.0 </td>
@@ -42,7 +42,6 @@ We have evaluated the following models and games:
       <td>0.0 </td>
     </tr>
     <tr>
-      <th>0.00</th>
       <th>qlty score</th>
       <td>0.00</td>
       <td>/</td>
@@ -54,7 +53,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>ko/ko</th>
+      <th rowspan="2" valign="top">ko/ko (1.47) </th>
       <th>% played</th>
       <td>14.76</td>
       <td>0.0 </td>
@@ -66,7 +65,6 @@ We have evaluated the following models and games:
       <td>0.0 </td>
     </tr>
     <tr>
-      <th>1.47</th>
       <th>qlty score</th>
       <td>10.00</td>
       <td>/</td>
@@ -78,7 +76,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>flc/flc</th>
+      <th rowspan="2" valign="top">flc/flc (0.71) </th>
       <th>% played</th>
       <td>0.95</td>
       <td>0.0 </td>
@@ -90,7 +88,6 @@ We have evaluated the following models and games:
       <td>0.0 </td>
     </tr>
     <tr>
-      <th>0.71</th>
       <th>qlty score</th>
       <td>75.00</td>
       <td>/</td>
@@ -102,7 +99,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>ost/ost</th>
+      <th rowspan="2" valign="top">ost/ost (1.73) </th>
       <th>% played</th>
       <td>20.85</td>
       <td>0.0 </td>
@@ -114,7 +111,6 @@ We have evaluated the following models and games:
       <td>0.0 </td>
     </tr>
     <tr>
-      <th>1.73</th>
       <th>qlty score</th>
       <td>8.33</td>
       <td>/</td>
@@ -126,7 +122,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>vcn/vcn</th>
+      <th rowspan="2" valign="top">vcn/vcn (4.24) </th>
       <th>% played</th>
       <td>13.58</td>
       <td>5.08 </td>
@@ -138,7 +134,6 @@ We have evaluated the following models and games:
       <td>0.0 </td>
     </tr>
     <tr>
-      <th>4.24</th>
       <th>qlty score</th>
       <td>31.25</td>
       <td>100.0 (0.0)</td>
@@ -150,7 +145,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>cl/cl</th>
+      <th rowspan="2" valign="top">cl/cl (37.06) </th>
       <th>%played</th>
       <td>74.76</td>
       <td>76.92 </td>
@@ -162,7 +157,6 @@ We have evaluated the following models and games:
       <td>100.0 </td>
     </tr>
     <tr>
-      <th>37.06</th>
       <th>qlty score</th>
       <td>49.58</td>
       <td>68.75 (38.71)</td>
@@ -174,7 +168,7 @@ We have evaluated the following models and games:
       <td>84.87 (18.87)</td>
     </tr>
     <tr>
-      <th>3/3</th>
+      <th rowspan="2" valign="top">3/3 (15.77) </th>
       <th>% played</th>
       <td>44.50</td>
       <td>28.81 </td>
@@ -186,7 +180,6 @@ We have evaluated the following models and games:
       <td>16.0 </td>
     </tr>
     <tr>
-      <th>15.77</th>
       <th>qlty score</th>
       <td>35.46</td>
       <td>76.47 (43.72)</td>
@@ -198,7 +191,7 @@ We have evaluated the following models and games:
       <td>14.1 (25.21)</td>
     </tr>
     <tr>
-      <th>3.5/3.5</th>
+      <th rowspan="2" valign="top">3.5/3.5 (37.02) </th>
       <th>% played</th>
       <td>85.86</td>
       <td>69.49 </td>
@@ -210,7 +203,6 @@ We have evaluated the following models and games:
       <td>64.0 </td>
     </tr>
     <tr>
-      <th>37.02</th>
       <th>qlty score</th>
       <td>43.12</td>
       <td>71.95 (44.79)</td>
@@ -222,7 +214,7 @@ We have evaluated the following models and games:
       <td>72.83 (13.07)</td>
     </tr>
     <tr>
-      <th>3.5/4</th>
+      <th rowspan="2" valign="top">3.5/4 (42.39) </th>
       <th>% played</th>
       <td>86.75</td>
       <td>69.49 </td>
@@ -234,7 +226,6 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>42.39</th>
       <th>qlty score</th>
       <td>48.87</td>
       <td>62.6 (45.15)</td>
@@ -246,7 +237,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>4/3.5</th>
+      <th rowspan="2" valign="top">4/3.5 (55.61) </th>
       <th>% played</th>
       <td>82.78</td>
       <td>66.1 </td>
@@ -258,7 +249,6 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>55.61</th>
       <th>qlty score</th>
       <td>67.19</td>
       <td>93.59 (23.45)</td>
@@ -270,7 +260,7 @@ We have evaluated the following models and games:
       <td>/</td>
     </tr>
     <tr>
-      <th>4/4</th>
+      <th rowspan="2" valign="top">4/4 (59.48) </th>
       <th>% played</th>
       <td>96.06</td>
       <td>94.92 </td>
@@ -282,7 +272,6 @@ We have evaluated the following models and games:
       <td>100.0 </td>
     </tr>
     <tr>
-      <th>59.48</th>
       <th>qlty score</th>
       <td>61.93</td>
       <td>76.19 (37.45)</td>
