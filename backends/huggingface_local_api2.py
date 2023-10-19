@@ -10,9 +10,11 @@ MODEL_MISTRAL_MISTRAL_7B_INSTRUCT_V0_1 = "Mistral-7B-Instruct-v0.1"
 MODEL_RIIID_SHEEP_DUCK_LLAMA_2_70B_V1_1 = "sheep-duck-llama-2-70b-v1.1"
 MODEL_RIIID_SHEEP_DUCK_LLAMA_2_13B = "sheep-duck-llama-2-13b"
 MODEL_FALCON_7B_INSTRUCT = "falcon-7b-instruct"
+MODEL_FALCON_40B_INSTRUCT = "falcon-40b-instruct"
 MODEL_OPEN_ASSISTANT_12B = "oasst-sft-4-pythia-12b-epoch-3.5"
 MODEL_KOALA_13B = "koala-13B-HF"
 MODEL_VICUNA_13B = "Wizard-Vicuna-13B-Uncensored-HF"
+MODEL_GOOGLE_FLAN_T5 = "flan-t5-xxl"
 SUPPORTED_MODELS = [MODEL_MISTRAL_MISTRAL_7B_INSTRUCT_V0_1, MODEL_RIIID_SHEEP_DUCK_LLAMA_2_70B_V1_1, MODEL_RIIID_SHEEP_DUCK_LLAMA_2_13B, MODEL_FALCON_7B_INSTRUCT, MODEL_OPEN_ASSISTANT_12B, MODEL_KOALA_13B, MODEL_VICUNA_13B]
 
 NAME = "huggingface2"
@@ -25,18 +27,18 @@ ORCA_HASH = ["sheep-duck-llama-2-70b-v1.1", "sheep-duck-llama-2-13b"]
 orca_template = "{% for message in messages %}{% if message['role'] == 'user' %}{{ '### User:\\n' + message['content'] + '\\n\\n' }}{% elif message['role'] == 'system' %}{{ '### System:\\n' + message['content'] + '\\n\\n' }}{% elif message['role'] == 'assistant' %}{{ '### Assistant:\\n' + message['content'] + '\\n\\n' }}{% endif %}{% if loop.last %}{{ '### Assistant:\\n' }}{% endif %}{% endfor %}"
 VICUNA = ["Wizard-Vicuna-13B-Uncensored-HF"]
 # jinja template for Vicuna 1.1 format:
-vicuna_1_1_template = "{% for message in messages %}{% if message['role'] == 'user' %}{{ 'USER: ' + message['content'] + '\\n' }}{% elif message['role'] == 'assistant' %}{{ 'ASSISTANT: ' + message['content'] + '\\n' }}{% endif %}{% if loop.last %}{{ 'ASSISTANT: ' }}{% endif %}{% endfor %}"
+vicuna_1_1_template = "{% for message in messages %}{% if message['role'] == 'user' %}{{ 'USER: ' + message['content'] + '\\n' }}{% elif message['role'] == 'assistant' %}{{ 'ASSISTANT: ' + message['content'] + '</s>\\n' }}{% endif %}{% if loop.last %}{{ 'ASSISTANT: ' }}{% endif %}{% endfor %}"
 KOALA = ["koala-13B-HF"]
 # jinja template for Koala format:
 koala_template = "{{ 'BEGINNING OF CONVERSATION: ' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ 'USER: ' + message['content'] + ' ' }}{% elif message['role'] == 'assistant' %}{{ 'GPT: ' + message['content'] + ' ' }}{% endif %}{% if loop.last %}{{ 'GPT:' }}{% endif %}{% endfor %}"
 OASST = ["oasst-sft-4-pythia-12b-epoch-3.5"]
 # jinja template for OpenAssist format:
 oasst_template = "{% for message in messages %}{% if message['role'] == 'user' %}{{ '<|prompter|>' + message['content'] + '<|endoftext|>' }}{% elif message['role'] == 'assistant' %}{{ '<|assistant|>' + message['content'] + '<|endoftext|>' }}{% endif %}{% if loop.last %}{{ '<|assistant|>' }}{% endif %}{% endfor %}"
-FALCON = ["falcon-7b-instruct"]
+FALCON = ["falcon-7b-instruct", "falcon-40b-instruct"]
 # jinja template for (minimal) Falcon format:
 falcon_template = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
 # templates currently have 'generation prompt' hardcoded
-# doesn't matter for clembench, but once added, templates can pushed to HF
+# doesn't matter for clembench, but once added, templates can be pushed to HF and this block can be reduced
 
 
 class HuggingfaceLocal2(backends.Backend):
@@ -53,12 +55,14 @@ class HuggingfaceLocal2(backends.Backend):
             hf_user_prefix = "mistralai/"
         elif model_name in ["sheep-duck-llama-2-70b-v1.1", "sheep-duck-llama-2-13b"]:  # Riiid models
             hf_user_prefix = "Riiid/"
-        elif model_name in ["falcon-7b-instruct"]:  # tiiuae models
+        elif model_name in ["falcon-7b-instruct", "falcon-40b-instruct"]:  # tiiuae models
             hf_user_prefix = "tiiuae/"
         elif model_name in ["oasst-sft-4-pythia-12b-epoch-3.5"]:  # OpenAssistant models
             hf_user_prefix = "OpenAssistant/"
         elif model_name in ["koala-13B-HF", "Wizard-Vicuna-13B-Uncensored-HF"]:  # TheBloke models
             hf_user_prefix = "TheBloke/"
+        elif model_name in ["flan-t5-xxl"]:  # Google models
+            hf_user_prefix = "google/"
 
         hf_model_str = f"{hf_user_prefix}{model_name}"
 
