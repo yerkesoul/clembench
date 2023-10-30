@@ -25,7 +25,7 @@ class Llama2LocalHF(backends.Backend):
     Format source: https://github.com/facebookresearch/llama/blob/main/llama/generation.py
     """
     def __init__(self):
-        self.chat_models: List = ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf"]
+        self.chat_models: List = [MODEL_LLAMA2_7B_C_HF, MODEL_LLAMA2_13B_C_HF, MODEL_LLAMA2_70B_C_HF]
         self.temperature: float = -1.
         self.model_loaded: bool = False
 
@@ -41,7 +41,7 @@ class Llama2LocalHF(backends.Backend):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         # init HF pipeline:
         self.model_pipeline = pipeline('text-generation', tokenizer=self.tokenizer, model=self.model, device_map="auto")
-        #
+
         self.model_name = model_name
         self.model_loaded = True
 
@@ -56,7 +56,7 @@ class Llama2LocalHF(backends.Backend):
                     {"role": "user", "content": "Where was it played?"}
                 ]
         :param model: model name, chat models for chat-completion, otherwise text completion
-        :param max_gen_len: Maximum generation length.
+        :param max_new_tokens: Maximum generation length.
         :param top_p: Top-P sampling parameter.
         :return: the continuation
         """
