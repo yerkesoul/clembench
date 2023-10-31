@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 ### API Key
 
-Create a file `key.json` in the project root and past in your api key (and organisation optionally).
+Create a file `key.json` in the project root and paste in your api key (and organisation optionally).
 
 ```
 {
