@@ -147,7 +147,7 @@ Add to the module a `master.py` that implements the `GameMaster`.
 ### Running experiments with your game
 
 ```
-python3 scripts/cli.py -m gpt-3.5-turbo [-e greet_en] hellogame
+python3 scripts/cli.py -m gpt-3.5-turbo [-e greet_en] run hellogame
 ```
 
 Note: With -e you can specify specific experiments to run.
