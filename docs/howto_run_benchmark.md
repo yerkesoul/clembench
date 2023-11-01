@@ -82,6 +82,14 @@ You can get more information about what you can do with the `cli` script via:
 python3 scripts/cli.py --help
 ```
 
+For example, you can use that script to get a more readable version of the game play jsons like so:
+
+```
+python3 scripts/cli.py transcribe taboo
+```
+
+(The `results` directory will now hold html and LaTeX views of the transcripts.)
+
 
 ## Running the benchmark
 
