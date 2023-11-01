@@ -30,7 +30,7 @@ class Llama2LocalHF(backends.Backend):
         self.temperature: float = -1.
         self.model_loaded: bool = False
 
-    def load_model(self, model_name: str, max_seq_len: int = 512, max_batch_size: int = 8):
+    def load_model(self, model_name: str):
         assert model_name in SUPPORTED_MODELS, f"{model_name} is not supported, please make sure the model name is correct."
         logger.info(f'Start loading llama2-hf model: {model_name}')
         # full HF model id string:
@@ -55,7 +55,7 @@ class Llama2LocalHF(backends.Backend):
                 ]
         :param model: model name, chat models for chat-completion, otherwise text completion
         :param max_new_tokens: Maximum generation length.
-        :param top_p: Top-P sampling parameter.
+        :param top_p: Top-P sampling parameter. Only applies when do_sample=True.
         :return: the continuation
         """
         assert 0.0 <= self.temperature <= 1.0, "Temperature must be in [0.,1.]"
@@ -71,10 +71,9 @@ class Llama2LocalHF(backends.Backend):
             do_sample = True
 
         if model in self.chat_models:  # chat completion
-
             # apply chat template & tokenize
             prompt_tokens = self.tokenizer.apply_chat_template(messages, return_tensors="pt")
-
+            # apply chat template for records:
             prompt_text = self.tokenizer.apply_chat_template(messages, tokenize=False)
             prompt = {"inputs": prompt_text, "max_new_tokens": max_new_tokens,
                       "temperature": self.temperature}
