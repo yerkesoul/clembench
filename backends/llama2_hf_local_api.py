@@ -21,10 +21,11 @@ NAME = "llama2-hf"
 
 
 class Llama2LocalHF(backends.Backend):
-    """
-    Format source: https://github.com/facebookresearch/llama/blob/main/llama/generation.py
-    """
     def __init__(self):
+        # load HF API key:
+        creds = backends.load_credentials("huggingface")
+        self.api_key = creds["huggingface"]["api_key"]
+
         self.chat_models: List = [MODEL_LLAMA2_7B_C_HF, MODEL_LLAMA2_13B_C_HF, MODEL_LLAMA2_70B_C_HF]
         self.temperature: float = -1.
         self.model_loaded: bool = False
@@ -35,8 +36,8 @@ class Llama2LocalHF(backends.Backend):
         # full HF model id string:
         hf_id_str = f"meta-llama/{model_name.capitalize()}"
         # load tokenizer and model:
-        self.tokenizer = AutoTokenizer.from_pretrained(hf_id_str)
-        self.model = AutoModelForCausalLM.from_pretrained(hf_id_str)
+        self.tokenizer = AutoTokenizer.from_pretrained(hf_id_str, token=self.api_key, device_map="auto")
+        self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key, device_map="auto")
         # use CUDA if available:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         # init HF pipeline:
