@@ -68,9 +68,70 @@ or run game masters individually
 python3 clembench/games/privateshared/master.py
 ```
 
+or run game masters individually for individual models. Note some games (privateshared) are single player and some games can be multiplayer (taboo, referencegame, imagegame, wordle)
+
+```
+python scripts/cli.py -m gpt-3.5-turbo run privateshared
+```
+
+```
+python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run taboo
+```
+
+```
+python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run imagegame
+```
+
+```
+python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run referencegame
+```
+
+```
+python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run wordle
+```
+
+
+## Results
+
+All results from running the benchmark will be saved under `results` folder.
+
 ## Running the evaluation
 
 All details from running the benchmarked are logged in the respective game directories,
 with the format described in ```logdoc.md```.
 
+In order to generate the transcriptions of the dialogues, please run this command:
+
+```
+python3 scripts/cli.py transcribe all
+```
+
+Or put a single game name (taboo, referencegame, imagegame, wordle, privateshared)
+
+```
+python3 scripts/cli.py transcribe taboo
+```
+
+Next, run this command to generate the scores of the dialogues:
+
+```
+python3 scripts/cli.py score all
+```
+
+Or put a single game name (taboo, referencegame, imagegame, wordle, privateshared)
+
+```
+python3 scripts/cli.py score taboo
+```
+
 We provide an evaluation script at `evaluation/basiceval.py` that produces a number of tables and visualizations for the benchmark. New models (their name abbreviation), metrics (their range) and game/model (their order) must be added manually to the constants in ```evaluation/evalutils.py```.
+
+Run the following script that generates the tables and plots for the benchmark:
+
+Or put a single game name (taboo, referencegame, imagegame, wordle, privateshared)
+
+```
+python3 evaluation/basiceval.py
+```
+
+
