@@ -3,7 +3,7 @@
 from typing import List, Dict, Tuple, Any, Optional
 import torch
 import backends
-from transformers import AutoTokenizer, pipeline, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 logger = backends.get_logger(__name__)
 
@@ -40,9 +40,6 @@ class Llama2LocalHF(backends.Backend):
         self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key, device_map="auto")
         # use CUDA if available:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        # init HF pipeline:
-        self.model_pipeline = pipeline('text-generation', tokenizer=self.tokenizer, model=self.model, device_map="auto")
-
         self.model_name = model_name
         self.model_loaded = True
 
@@ -95,7 +92,7 @@ class Llama2LocalHF(backends.Backend):
 
             response = {
                 "role": "assistant",
-                "content": model_output,
+                "content": model_output.replace(prompt_text, ''),
             }
 
             response_text = model_output.replace(prompt_text, '').strip()
