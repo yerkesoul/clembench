@@ -67,19 +67,29 @@ python3 scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run taboo
 
 (The `-m` option tells the script which model to use; since taboo is a two player game, we need both partners to be specified here.)
 
-This should give you an output that contains something like the following:
+This should give you an output on the terminal that contains something like the following:
 
 ```
 Playing games: 100%|██████████████████████████████████| 20/20 [00:48<00:00,  2.41s/it]
 ```
 
-Unfortunately, at the moment the code fails silently for example if model names are wrong, so make sure that you see the confirmation that the game actually has been played.
+If that is the case, output (transcripts of the games played) will have been written to `results/taboo` (in the main directory of the code).
+
+Unfortunately, at the moment the code often fails silently, for example if model names are wrong, so make sure that you see the confirmation that the game actually has been played. Have a look at the file `clembench.log` if you suspect that something might be wrong.
 
 You can get more information about what you can do with the `cli` script via:
 
 ```
 python3 scripts/cli.py --help
 ```
+
+For example, you can use that script to get a more readable version of the game play jsons like so:
+
+```
+python3 scripts/cli.py transcribe taboo
+```
+
+After running this, the `results` directory will now hold html and LaTeX views of the transcripts.
 
 
 To run other game masters individually use the following scripts. Note some games (privateshared) are single player and some games can be multiplayer (taboo, referencegame, imagegame, wordle)
@@ -103,11 +113,6 @@ python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run referencegame
 ```
 python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run wordle
 ```
-
-
-## Results
-
-(The `results` directory will now hold html and LaTeX views of the transcripts.)
 
 
 ## Running the benchmark
