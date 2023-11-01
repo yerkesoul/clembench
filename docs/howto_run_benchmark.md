@@ -48,7 +48,10 @@ Currently available values are:
 
 Models can be added in `clemgame/api.py`.
 
-## Running the benchmark
+
+## Validating your installation
+
+Add keys to the API providers as described above.
 
 Go into the project root and prepare path to run from cmdline
 
@@ -59,16 +62,27 @@ source prepare_path.sh
 Then run the cli script
 
 ```
+python3 scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run taboo
+```
+
+(The `-m` option tells the script which model to use; since taboo is a two player game, we need both partners to be specified here.)
+
+This should give you an output that contains something like the following:
+
+```
+Playing games: 100%|██████████████████████████████████| 20/20 [00:48<00:00,  2.41s/it]
+```
+
+Unfortunately, at the moment the code fails silently for example if model names are wrong, so make sure that you see the confirmation that the game actually has been played.
+
+You can get more information about what you can do with the `cli` script via:
+
+```
 python3 scripts/cli.py --help
 ```
 
-or run game masters individually
 
-```
-python3 clembench/games/privateshared/master.py
-```
-
-or run game masters individually for individual models. Note some games (privateshared) are single player and some games can be multiplayer (taboo, referencegame, imagegame, wordle)
+To run other game masters individually use the following scripts. Note some games (privateshared) are single player and some games can be multiplayer (taboo, referencegame, imagegame, wordle)
 
 ```
 python scripts/cli.py -m gpt-3.5-turbo run privateshared
@@ -93,7 +107,24 @@ python scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run wordle
 
 ## Results
 
-All results from running the benchmark will be saved under `results` folder.
+(The `results` directory will now hold html and LaTeX views of the transcripts.)
+
+
+## Running the benchmark
+
+Go into the project root and prepare path to run from cmdline
+
+```
+source prepare_path.sh
+```
+
+Then, run the wrapper script:
+
+```
+./pipeline_clembench.sh
+```
+
+Internally, this uses `run.sh` to run individual game/model combinations. Inspect the code to see how things are done.
 
 ## Running the evaluation
 
