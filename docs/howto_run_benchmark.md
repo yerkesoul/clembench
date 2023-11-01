@@ -164,8 +164,6 @@ We provide an evaluation script at `evaluation/basiceval.py` that produces a num
 
 Run the following script that generates the tables and plots for the benchmark:
 
-Or put a single game name (taboo, referencegame, imagegame, wordle, privateshared)
-
 ```
 python3 evaluation/basiceval.py
 ```
