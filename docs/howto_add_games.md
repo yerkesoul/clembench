@@ -1,12 +1,101 @@
 # The Lightweight Dialogue Game framework
 
-## How to add and run your own game
+The benchmark is run for a particular game -- for example the taboo game -- using the follow command:  
 
-Games are interactions between two agents that are administrated by a game master.
-The game master handles all game logic and all messages are passed via the game master.
-The game master evaluates whether an agent has made a valid move, when the dialog ends, and what evaluation measures are logged.
+```
+python3 scripts/cli.py -m gpt-3.5-turbo--gpt-3.5-turbo run taboo
+```
 
-### The GameMaster
+From the call we already see that taboo is a two-player game because we need to provide a descriptor for two models.
+These models are supposed to play certain roles in the game, here a clue giver and a guesser. 
+
+### GameBenchmark class
+
+When the command is executed then the `run` routine in `benchmark.py` 
+will determine the game code that needs to be invoked.
+For this the benchmark code loads all **subclasses** of type `GameBenchmark` and calls `setup()` 
+on them. The setup method already loads the game instances (`self.load_json("in/instances.json")`). 
+After this each game benchmark **subclass** is asked if it applies to the given game name, here `taboo`.  
+
+Therefore, such a **subclass** has to be provided with a specific game name 
+for each game to be run in the benchmark, for example for taboo:
+
+```
+class TabooGameBenchmark(GameBenchmark):
+
+    def __init__(self):
+        super().__init__(GAME_NAME)
+
+    def get_description(self):
+        return "Taboo game between two agents where one has to describe a word for the other to guess."
+
+    def create_game_master(self, experiment: Dict, player_backends: List[str]) -> GameMaster:
+        return Taboo(experiment, player_backends)
+        
+    def is_single_player(self) -> bool:
+        return False
+```
+
+The respective subclass simply provides the `GAME_NAME=taboo` and the `GameBenchmark` super class is taking care of most
+of the necessary plumbing and executes the main logic for a benchmark run (calling the game master, loading files etc.).
+
+Aside: The return value of `get_description` is shown for the `python3 scripts/cli.py ls` command.
+
+Then the benchmark code checks if your game is single or multiplayer game (the default is multi-player), 
+so that the `-m gpt-3.5-turbo--gpt-3.5-turbo` option is properly handled. 
+Then the `run(dialog_pair,temperature)` method is called which is already implemented by `GameBenchmark`.
+This is when the `GameMaster` becomes relevant (which should be returned by your `create_game_master()` factory method).
+
+### GameMaster class
+
+Now for each experiment in the `instances.json` -- that has been loaded on_setup() -- the game benchmark code 
+applies the given dialog pair (or if not given tries to determine the dialogue pair from the instance information).
+
+Aside: There is also the option to provide multiple dialogue pairings in the experiments in `instances.json`. 
+Therefore, the code must check again, if these pairing align to the nature of the game (single or multiplayer).
+
+Each experiment represents a specific condition for the game, for example the assumed difficulty of the game instances
+and holds the actual game instances themselves. Then for each game instance a `GameMaster` is created 
+by using the `self.create_game_master()` method of the `GameBenchmark`. The `GameMaster` is in charge of actually 
+playing a single instance of the game. 
+For taboo this would be a target word to be guessed and the words that are not allowed to be said.
+The relevant code looks as follows:
+
+```
+try:
+   game_master = self.create_game_master(experiment_config, dialogue_pair)
+   game_master.setup(**game_instance)
+   game_master.play()
+   game_master.store_records(game_id, game_record_dir)
+except Exception:  # continue with other episodes if something goes wrong
+   self.logger.exception(f"{self.name}: Exception for episode {game_id} (but continue)")
+```
+
+We see that game master receives the game instance information on `setup()`. 
+Then coordinates the `play()` of the actual game. And finally calls `store_records` to stores 
+the interactions between the players and the game master during the turns in the `game_record_dir` 
+(this directory is prepared by the `GameBenchmark`).
+
+### Overview
+
+These are the important classes and methods to be implemented for your own game.
+
+A`MyGameBenchmark` that extends `GameBenchmark` and implements:
+- `def __init__(self)` with call to `super().__init__(GAME_NAME)`
+- `def get_description(self)` that returns a description
+- `def is_single_player(self) -> bool` that determines if one player is sufficient
+- `def create_game_master(self, experiment: Dict, player_backends: List[str]) -> GameMaster` that returns `MyGameMaster` for my game
+
+A`MyGameMaster` that extends `GameMaster` and implements:
+- `def __init__(self, name: str, experiment: Dict, player_backends: List[str] = None):` that receives the experiment information and the players that play the game. These can be simply delegated to `super()`.
+- `def setup(self, **game_instance)` which sets the information you specify in `instances.json`
+- `def play(self)` that executes the game logic and performs the turns in the game
+- `def compute_scores(self, episode_interactions: Dict)` that is called later when the user executes the `python3 scripts/cli.py score taboo` command
+
+Note that the `store_records` method is already implemented by `GameRecorder` 
+and every `GameMaster` extends that class. This means that the method must not be implemented.
+
+# Details
 
 The game master is implemented as a `GameMaster` class.
 The `GameMaster` does
