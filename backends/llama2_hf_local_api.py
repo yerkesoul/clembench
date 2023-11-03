@@ -4,6 +4,7 @@ from typing import List, Dict, Tuple, Any, Optional
 import torch
 import backends
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import os
 
 logger = backends.get_logger(__name__)
 
@@ -33,11 +34,23 @@ class Llama2LocalHF(backends.Backend):
     def load_model(self, model_name: str):
         assert model_name in SUPPORTED_MODELS, f"{model_name} is not supported, please make sure the model name is correct."
         logger.info(f'Start loading llama2-hf model: {model_name}')
+
+        # model cache handling
+        root_data_path = os.path.join(os.path.abspath(os.sep), "data")
+        # check if root/data exists:
+        if not os.path.isdir(root_data_path):
+            logger.info(f"{root_data_path} does not exist, creating directory.")
+            # create root/data:
+            os.mkdir(root_data_path)
+        CACHE_DIR = os.path.join(root_data_path, "huggingface_cache")
+
         # full HF model id string:
         hf_id_str = f"meta-llama/{model_name.capitalize()}"
         # load tokenizer and model:
-        self.tokenizer = AutoTokenizer.from_pretrained(hf_id_str, token=self.api_key, device_map="auto")
-        self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key, device_map="auto")
+        self.tokenizer = AutoTokenizer.from_pretrained(hf_id_str, token=self.api_key, device_map="auto",
+                                                       cache_dir=CACHE_DIR)
+        self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key, device_map="auto",
+                                                          cache_dir=CACHE_DIR)
         # use CUDA if available:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_name = model_name
