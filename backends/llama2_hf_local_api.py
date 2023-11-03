@@ -87,7 +87,7 @@ class Llama2LocalHF(backends.Backend):
             )
 
             model_output = self.tokenizer.decode(model_output_ids, skip_special_tokens=True,
-                                                 clean_up_tokenization_spaces=False)
+                                                 clean_up_tokenization_spaces=False)[0]
 
             response = {
                 "role": "assistant",
@@ -114,7 +114,7 @@ class Llama2LocalHF(backends.Backend):
             )
 
             model_output = self.tokenizer.decode(model_output_ids, skip_special_tokens=True,
-                                                 clean_up_tokenization_spaces=False)
+                                                 clean_up_tokenization_spaces=False)[0]
 
             response_text = model_output.replace(prompt, '').strip()
 
