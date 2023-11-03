@@ -1,11 +1,7 @@
 #!/bin/bash
 # Usage: ./pipeline_llama2_hf.sh
 # Preparation: ./setup_hf.sh
-echo
-echo "==================================================="
-echo "PIPELINE: Starting"
-echo "==================================================="
-echo
+# check if needed API key file exists:
 if [ -e key.json ]
 then
   echo "key.json found."
@@ -13,6 +9,15 @@ else
   echo "key.json not found! Loading Llama2 models requires a HuggingFace access token of an account that has Meta's permission to do so."
   exit 1
 fi
+# activate HF venv:
+source venv_hf/bin/activate
+source prepare_path.sh
+# run pipeline:
+echo
+echo "==================================================="
+echo "PIPELINE: Starting"
+echo "==================================================="
+echo
 game_runs=(
   # Single-player: privateshared
   "privateshared llama-2-7b-chat-hf"
