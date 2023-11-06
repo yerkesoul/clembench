@@ -91,13 +91,20 @@ class Llama2LocalHF(backends.Backend):
             prompt = {"inputs": prompt_text, "max_new_tokens": max_new_tokens,
                       "temperature": self.temperature}
 
-            model_output_ids = self.model.generate(
-                prompt_tokens,
-                do_sample=do_sample,
-                max_new_tokens=max_new_tokens,
-                temperature=self.temperature,
-                top_p=top_p
-            )
+            if do_sample:
+                model_output_ids = self.model.generate(
+                    prompt_tokens,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens,
+                    temperature=self.temperature,
+                    top_p=top_p
+                )
+            else:
+                model_output_ids = self.model.generate(
+                    prompt_tokens,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens
+                )
 
             model_output = self.tokenizer.decode(model_output_ids, skip_special_tokens=True,
                                                  clean_up_tokenization_spaces=False)[0]
