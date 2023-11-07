@@ -25,6 +25,7 @@ aux["value"] = 1 - aux["value"]
 # We need ignore_index=True to reset the indices (otherwise we have duplicates)
 df_episode_scores = pd.concat([df_episode_scores, aux], ignore_index=True)
 
+
 def save_clem_table(df):
     """Create table with % played and main score."""
     df_aux = df[df['metric'].isin(utils.MAIN_METRICS)]
@@ -62,7 +63,6 @@ def save_clem_table(df):
     df_clem.to_html(buf=PATH / 'bench-results-table.html')
     df_clem.to_latex(buf=PATH / 'bench-results-table.tex',
                      float_format=utils.FLOAT_FORMAT, na_rep='n/a')
-
     return df_clem
 
 
@@ -79,10 +79,10 @@ def save_clem_score_table(df_paper: pd.DataFrame) -> None:
     df_aux.to_html(buf=PATH / 'clem-table.html')
     df_aux.to_latex(buf=PATH / 'clem-table.tex',
                      float_format=utils.FLOAT_FORMAT, na_rep='n/a')
-
     return df_aux
 
-df_clem = save_clem_table(df_episode_scores)
-_ = save_clem_score_table(df_clem)
 
-print(f'\n Saved tables into {PATH}/.')
+if __name__ == '__main__':
+    df_clem = save_clem_table(df_episode_scores)
+    _ = save_clem_score_table(df_clem)
+    print(f'\n Saved tables into {PATH}/.')
