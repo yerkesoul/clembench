@@ -84,6 +84,12 @@ class Llama2LocalHF(backends.Backend):
             do_sample = True
 
         if model in self.chat_models:  # chat completion
+            # flatten consecutive user messages:
+            for msg_idx, message in enumerate(messages):
+                if msg_idx > 0 and message['role'] == "user" and messages[msg_idx - 1]['role'] == "user":
+                    messages[msg_idx - 1]['content'] += f" {message['content']}"
+                    del messages[msg_idx]
+
             # apply chat template & tokenize
             prompt_tokens = self.tokenizer.apply_chat_template(messages, return_tensors="pt")
             # apply chat template for records:
