@@ -181,6 +181,8 @@ The score results will be stored to ```scores.json``` which contains:
 - ```turn scores```: the turn-level scores for each game turn.
 - ```episode scores```: the episode-level scores for the episode.
 
+*** Important: if the game was aborted, all episode-level scores should be ```np.nan``` and turn-level scores can be logged up to the turn when the game was aborted. If the game was won or lost, all metrics should be a numerical value. This is specially revelant for the main score of each game, so that the evaluation script correctly distinguishes %played and computes the main score only for actually played games.  
+
 Here is an example of how the ```scores.json``` file of an episode will look like:
 
 ```json
