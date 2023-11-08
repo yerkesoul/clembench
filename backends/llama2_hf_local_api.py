@@ -48,7 +48,7 @@ class Llama2LocalHF(backends.Backend):
         hf_id_str = f"meta-llama/{model_name.capitalize()}"
         # load tokenizer and model:
         self.tokenizer = AutoTokenizer.from_pretrained(hf_id_str, token=self.api_key, device_map="auto",
-                                                       cache_dir=CACHE_DIR)
+                                                       cache_dir=CACHE_DIR, verbose=False)
         self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key, device_map="auto",
                                                           cache_dir=CACHE_DIR)
         # use CUDA if available:
