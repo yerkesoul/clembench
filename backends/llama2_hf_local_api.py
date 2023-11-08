@@ -28,7 +28,7 @@ class Llama2LocalHF(backends.Backend):
         self.api_key = creds["huggingface"]["api_key"]
 
         self.chat_models: List = [MODEL_LLAMA2_7B_C_HF, MODEL_LLAMA2_13B_C_HF, MODEL_LLAMA2_70B_C_HF]
-        self.temperature: float = 0.0
+        self.temperature: float = -1.
         self.model_loaded: bool = False
 
     def load_model(self, model_name: str):
@@ -80,8 +80,8 @@ class Llama2LocalHF(backends.Backend):
 
         # greedy decoding:
         do_sample: bool = False
-        # if self.temperature > 0.0:
-        #    do_sample = True
+        if self.temperature > 0.0:
+            do_sample = True
 
         if model in self.chat_models:  # chat completion
             # flatten consecutive user messages:
@@ -97,11 +97,20 @@ class Llama2LocalHF(backends.Backend):
             prompt = {"inputs": prompt_text, "max_new_tokens": max_new_tokens,
                       "temperature": self.temperature}
 
-            model_output_ids = self.model.generate(
-                prompt_tokens,
-                do_sample=do_sample,
-                max_new_tokens=max_new_tokens
-            )
+            if do_sample:
+                model_output_ids = self.model.generate(
+                    prompt_tokens,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens,
+                    temperature=self.temperature,
+                    top_p=top_p
+                )
+            else:
+                model_output_ids = self.model.generate(
+                    prompt_tokens,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens
+                )
 
             model_output = self.tokenizer.batch_decode(model_output_ids, skip_special_tokens=True,
                                                        clean_up_tokenization_spaces=False)[0]
@@ -122,11 +131,20 @@ class Llama2LocalHF(backends.Backend):
                 add_eos_token=False,
             )
 
-            model_output_ids = self.model.generate(
-                prompt_tokens,
-                do_sample=do_sample,
-                max_new_tokens=max_new_tokens,
-            )
+            if do_sample:
+                model_output_ids = self.model.generate(
+                    prompt_tokens,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens,
+                    temperature=self.temperature,
+                    top_p=top_p
+                )
+            else:
+                model_output_ids = self.model.generate(
+                    prompt_tokens,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens
+                )
 
             model_output = self.tokenizer.batch_decode(model_output_ids, skip_special_tokens=True,
                                                        clean_up_tokenization_spaces=False)[0]
