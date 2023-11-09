@@ -108,50 +108,16 @@ The `GameMaster` does
 
 The `GameMaster` must implement the following methods:
 
-1. `_on_setup(self, **kwargs)`: A method that instantiates a particular game episode that is described by the game instance (the `kwargs`)
+1. `setup(self, **kwargs)`: A method that instantiates a particular game episode that is described by the game instance (the `kwargs`)
+2. `play(self)`: A method that runs a game play from beginning to end, enforcing the game rules and keeping records of all events.
+3. `compute_scores(self, episode_interactions: Dict)`: A method that takes the records of a played game and computes all episode-level and turn-level scores used for evaluation.
 
-For example, the taboo game is set up as a game between two players, with a maximum number of turns and a list of target words and related words. The game state also includes whether a description was valid and a whether a guess was correct or not:
-  ```python
-    def _on_setup(self, **game_instance):
-        self.game_instance = game_instance
-
-        self.describer = WordDescriber(self.player_backends[0], self.max_turns)
-        self.guesser = WordGuesser(self.player_backends[1])
-
-        self.add_player(self.describer)
-        self.add_player(self.guesser)
-
-        self.target_word = game_instance["target_word"]
-        self.related_words = game_instance["related_word"]
-
-        self.invalid_response = False
-        self.target_in_description = False
-        self.guess_word = None
-
-  ```
-
-2. `_does_game_proceed(self)`: A method that returns `True` if the game should proceed at a particular game state or `False` if not.
-
-For example, the taboo game ends when one of the players gave an invalid response (e.g. a response that does not adhere to the expected format), when the describer used the target word in the description, when the guess was correct or when the maximum number of turns was reached:
-```python
-    def _does_game_proceed(self):
-        if self.invalid_response:
-            return False
-        if self.target_in_description:
-            return False  # stop game if clue is wrong (for now)
-        if self.guess_word == self.target_word:
-            return False
-        if self.current_turn >= self.max_turns:
-            return False
-        return True
-
-```
 
 ### The Player
 
 A `Player` object receives `messages` and returns a textual response.
 A player generates this response either as a `_api_response()`
-(calling a deployed cLLM) or by implemented behavior in `_static_response()`.
+(calling a deployed cLLM) or by implemented behavior in `_custom_response()`.
 
 For example, the taboo game guesser agent can be implemented as a player that can be a cLLM with a static response that always guesses the word "pear":
 
@@ -163,7 +129,7 @@ class WordGuesser(Player):
    def __init__(self, model_name):
       super().__init__(model_name)
 
-   def _static_response(self, messages, turn_idx):
+   def _custom_response(self, messages, turn_idx):
       # mock response
       return f'Pear'
 ```
