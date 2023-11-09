@@ -78,6 +78,7 @@ class Llama2LocalHF(backends.Backend):
         if not self.model_loaded:
             self.load_model(model)
             logger.info(f"Finished loading llama2-hf model: {model}")
+            logger.info(f"Model device map: {self.model.hf_device_map}")
 
         # greedy decoding:
         do_sample: bool = False
