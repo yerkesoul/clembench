@@ -49,7 +49,8 @@ class Llama2LocalHF(backends.Backend):
         # load tokenizer and model:
         self.tokenizer = AutoTokenizer.from_pretrained(hf_id_str, token=self.api_key, device_map="auto",
                                                        cache_dir=CACHE_DIR, verbose=False)
-        self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key, device_map="auto",
+        self.model = AutoModelForCausalLM.from_pretrained(hf_id_str, token=self.api_key,
+                                                          torch_dtype="auto", device_map="auto",
                                                           cache_dir=CACHE_DIR)
         # use CUDA if available:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
