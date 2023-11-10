@@ -3,6 +3,7 @@
 from typing import List, Dict, Tuple, Any, Optional
 import torch
 import backends
+import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
 
@@ -84,6 +85,9 @@ class Llama2LocalHF(backends.Backend):
         do_sample: bool = False
         if self.temperature > 0.0:
             do_sample = True
+
+        # turn off redundant transformers warnings:
+        transformers.logging.set_verbosity_error()
 
         if model in self.chat_models:  # chat completion
             # flatten consecutive user messages:
