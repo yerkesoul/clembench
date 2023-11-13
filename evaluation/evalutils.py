@@ -129,10 +129,10 @@ def load_json(path: str) -> dict:
     return data
 
 
-def load_scores(game_name: str = None) -> dict:
+def load_scores(game_name: str = None, path: str = RESULTS_DIR) -> dict:
     """Get all turn and episodes scores and return them in a dictionary."""
     # https://stackoverflow.com/a/18394205
-    score_files = list(Path(RESULTS_DIR).rglob("*scores.json"))
+    score_files = list(Path(path).rglob("*scores.json"))
     print(f'Loading {len(score_files)} JSON files.')
     scores = {}
     for path in tqdm(score_files, desc="Loading scores"):

@@ -160,16 +160,18 @@ Or put a single game name (taboo, referencegame, imagegame, wordle, privateshare
 python3 scripts/cli.py score taboo
 ```
 
-We provide an evaluation script at `evaluation/basiceval.py` that produces a number of tables and visualizations for all games in the ```results/``` directory, which was used for the paper. New models (their name abbreviation), metrics (their range) and game/model (their order) must be added manually to the constants in ```evaluation/evalutils.py```. Run the following script to replicate the results in the paper or if you have new results:
+We provide an evaluation script at `evaluation/papereval.py` that produces a number of tables and visualizations for all games in the ```results/``` directory, which was used for the paper. To use this script, new models (their name abbreviation), metrics (their range) and game/model (their order) must be added manually to the constants in ```evaluation/evalutils.py```. Run the following to replicate the results in the paper or if you have new results:
 
 ```
-python3 evaluation/basiceval.py
+python3 evaluation/papereval.py
 ```
 
-If all you need is a table with the benchmark results (% played, main score and clemscore for each game and model), you can run:
+If all you need is a table with the leaderboard results (% played, main score and clemscore for each game and model), you can run:
 
 ```
-python3 evaluation/bencheval.py
+python3 evaluation/bencheval.py -p PATH_TO_RESULTS
 ```
 
-The latest relies solely on the structure of the ```results/``` directory, so it can be run with any games and models you have. The tables will be saved into ```results/```.
+where ```PATH_TO_RESULTS``` is your results folder. By default it will access ```./results/```.
+
+The latest relies solely on the structure of the results directory, so it can be run with any games and models you have. The table will be saved into ```PATH_TO_RESULTS/results.csv```, with a copy in html.

@@ -2,9 +2,10 @@
 Clembench Evaluation
 
 This script produces the main table with benchmark results, for all models
-and games in the results/ directory structure.
+and games in the given results directory structure.
 
 """
+from argparse import ArgumentParser
 from pathlib import Path
 
 import pandas as pd
@@ -12,77 +13,94 @@ import pandas as pd
 import evaluation.evalutils as utils
 import clemgame.metrics as clemmetrics
 
-PATH = Path(utils.RESULTS_DIR)
-
-scores = utils.load_scores()
-
-df_episode_scores = utils.build_df_episode_scores(scores)
-
-# Create the PLAYED variable
-aux = df_episode_scores[df_episode_scores["metric"] == "Aborted"].copy()
-aux["metric"] = clemmetrics.METRIC_PLAYED
-aux["value"] = 1 - aux["value"]
-# We need ignore_index=True to reset the indices (otherwise we have duplicates)
-df_episode_scores = pd.concat([df_episode_scores, aux], ignore_index=True)
+TABLE_NAME = 'results'
 
 
-def save_clem_table(df):
-    """Create table with % played and main score."""
+class PlayedScoreError(Exception):
+    """clemmetrics.METRIC_PLAYED found in scores.
+    
+    This metric is computed locally, as the complement of 
+    clemmetrics.METRIC_ABORTED. Games should not compute it, otherwise there
+    would be duplicates in the dataframe. This is in the documentation.
+    NOTE: This could instead be verified silently and only computed
+    for games that do not have it.
+    """
+    pass
+
+
+def save_clem_table(df: pd.DataFrame, path: str) -> None:
+    """Create benchmark results as a table."""
     df_aux = df[df['metric'].isin(utils.MAIN_METRICS)]
-    categories = ['game', 'model', 'metric']
-    # mean over all experiments
-    df_mean = (df_aux.groupby(categories)
-                     .mean(numeric_only=True)
-                     .rename({'value': 'mean'}, axis=1)
-                     .reset_index())
-    df_mean.loc[df_mean.metric == clemmetrics.METRIC_PLAYED, 'mean'] *= 100
-    df_mean = df_mean.round(2)
-    # standard deviation over all experiments
-    df_std = (df_aux.groupby(categories)
+
+    # compute mean benchscore and mean played (which is binary, so a proportion)
+    df_a = (df_aux.groupby(['game', 'model', 'metric'])
+                  .mean(numeric_only=True)
+                  .reset_index())
+    df_a.loc[df_a.metric == clemmetrics.METRIC_PLAYED, 'value'] *= 100
+    df_a = df_a.round(2)
+    df_a['metric'].replace(
+        {clemmetrics.METRIC_PLAYED: '% '+clemmetrics.METRIC_PLAYED},
+        inplace=True)
+
+    # compute the std of benchscore
+    df_aux_b = df_aux[df_aux.metric == clemmetrics.BENCH_SCORE]
+    df_b = (df_aux_b.groupby(['game', 'model', 'metric'])
                     .std(numeric_only=True)
-                    .rename({'value': 'std'}, axis=1)
                     .reset_index()
                     .round(2))
-    df_std.loc[df_std.metric == clemmetrics.METRIC_PLAYED, 'std'] = '-'
+    df_b['metric'].replace(
+        {clemmetrics.BENCH_SCORE: clemmetrics.BENCH_SCORE+' (std)'},
+        inplace=True)
 
-    # average across all activities (i.e. mean by row)
-    df_mean = df_mean.pivot(columns=['game'], index=['model', 'metric'])
-    df_mean['all'] = df_mean.mean(numeric_only=True, axis=1)
-    df_std = df_std.pivot(columns=['game'], index=['model', 'metric'])
+    # compute the macro-average main score over games, per model
+    df_all = (df_a.groupby(['model', 'metric'])
+                  .mean(numeric_only=True)
+                  .reset_index()
+                  .round(2))
+    # add columns for standard format in concatenation below
+    df_all['game'] = 'all'
+    df_all['metric'] = 'Average ' + df_all['metric']
 
-    # double check the order
-    assert all(df_mean.index == df_std.index)
-    pairs = zip(df_mean.columns[:-1], df_std.columns)
-    assert all(mean_col[1] == std_col[1] for mean_col, std_col in pairs)
+    # merge all data and make it one model per row
+    df_full = pd.concat([df_a, df_b, df_all], axis=0, ignore_index=True)
+    # sort just so all metrics are close to each other in a game column
+    df_full.sort_values(by=['game', 'metric'], inplace=True)
+    # rename according to paper
+    df_full['metric'] = df_full['metric'].str.replace(clemmetrics.BENCH_SCORE, 'Quality Score')
+    df_full = df_full.pivot(columns=['game', 'metric'], index=['model'])
+    df_full = df_full.droplevel(0, axis=1)
 
-    # merge both, putting std in parenthesis
-    df_aux = df_mean['mean'].astype(str) + ' (' + df_std['std'].astype(str)+')'
-    df_clem = pd.concat([df_mean['all'].round(2), df_aux], axis=1)
+    # compute clemscores and add to df
+    clemscore = ((df_full[('all', 'Average % Played')] / 100)
+                 * df_full[('all', 'Average Quality Score')])
+    clemscore = clemscore.round(2).to_frame(name=('-', 'clemscore'))
+    df_results = pd.concat([clemscore, df_full], axis=1)
 
-    df_clem.to_csv(PATH / 'bench-results-table.csv')
-    df_clem.to_html(buf=PATH / 'bench-results-table.html')
-    df_clem.to_latex(buf=PATH / 'bench-results-table.tex',
-                     float_format=utils.FLOAT_FORMAT, na_rep='n/a')
-    return df_clem
-
-
-def save_clem_score_table(df_paper: pd.DataFrame) -> None:
-    """Create a table with the clem score for each model."""
-    df_aux = (df_paper['all'].to_frame()
-                             .reset_index()
-                             .pivot(index=['model'], columns=['metric']))
-    df_aux['clemscore'] = ((df_aux[('all', 'Played')] / 100)
-                           * df_aux[('all', 'Main Score')])
-    df_aux = df_aux['clemscore'].to_frame().reset_index()
-
-    df_aux.to_csv(PATH / 'clem-table.csv')
-    df_aux.to_html(buf=PATH / 'clem-table.html')
-    df_aux.to_latex(buf=PATH / 'clem-table.tex',
-                     float_format=utils.FLOAT_FORMAT, na_rep='n/a')
-    return df_aux
+    # save table
+    df_results.to_csv(Path(path) / f'{TABLE_NAME}.csv')
+    df_results.to_html(Path(path) / f'{TABLE_NAME}.html')
+    print(f'\n Saved results into {path}/{TABLE_NAME}.csv and .html')
 
 
 if __name__ == '__main__':
-    df_clem = save_clem_table(df_episode_scores)
-    _ = save_clem_score_table(df_clem)
-    print(f'\n Saved tables into {PATH}/.')
+    parser = ArgumentParser()
+    parser.add_argument("-p", "--results_path",
+                        type=str,
+                        default='./results',
+                        help="Path to the results folder containing scores.")
+    args = parser.parse_args()
+
+    # Get all episode scores as a pandas dataframe
+    scores = utils.load_scores(path=args.results_path)
+    df_episode_scores = utils.build_df_episode_scores(scores)
+
+    # Create the PLAYED variable, inferring it from ABORTED
+    if clemmetrics.METRIC_PLAYED in df_episode_scores['metric'].unique():
+        raise PlayedScoreError("Computed scores should not contain METRIC_PLAYED.")
+    aux = df_episode_scores[df_episode_scores["metric"] == clemmetrics.METRIC_ABORTED].copy()
+    aux["metric"] = clemmetrics.METRIC_PLAYED
+    aux["value"] = 1 - aux["value"]
+    # We need ignore_index=True to reset the indices (otherwise we have duplicates)
+    df_episode_scores = pd.concat([df_episode_scores, aux], ignore_index=True)
+
+    save_clem_table(df_episode_scores, args.results_path)
