@@ -95,25 +95,202 @@ A`MyGameMaster` that extends `GameMaster` and implements:
 Note that the `store_records` method is already implemented by `GameRecorder` 
 and every `GameMaster` extends that class. This means that the method must not be implemented.
 
-# Details
+### DialogueGameMaster
 
-The game master is implemented as a `GameMaster` class.
-The `GameMaster` does
+Now we can see that `MyGameMaster` has all the freedom to implement `play()` which might be in some cases a nice thing.
+In other cases we already know that the gameplay will be executed in turns of for example two players.
+For these cases you can extend from `DialogueGameMaster` a more conrete subclass of `GameMaster`.
 
-- access all relevant resources via `load_file()` or `load_json()`
-- `setup()` the concrete games instances
-- coordinate the `play()` of the game instances (up to multiple episodes)
-- record the game episodes (see ```logdoc.md``` for details)
-- call a `GameEvaluator` to `evaluate()` the game records XXX still-correct?
+The dialogue game master defines a play routine that is as follows:
 
-The `GameMaster` must implement the following methods:
+```python
+ def play(self) -> None:
+     self._on_before_game()
+     while self._does_game_proceed():
+         self.log_next_turn()  # not sure if we want to do this always here (or add to _on_before_turn)
+         self._on_before_turn(self.current_turn)
+         self.logger.info(f"{self.name}: %s turn: %d", self.name, self.current_turn)
+         for player in self.__player_sequence():
+             if not self._does_game_proceed():
+                 break  # potentially stop in between player turns
+             # GM -> Player
+             history = self.messages_by_names[player.descriptor]
+             assert history, f"messages history must not be empty for {player.descriptor}"
 
-1. `setup(self, **kwargs)`: A method that instantiates a particular game episode that is described by the game instance (the `kwargs`)
-2. `play(self)`: A method that runs a game play from beginning to end, enforcing the game rules and keeping records of all events.
-3. `compute_scores(self, episode_interactions: Dict)`: A method that takes the records of a played game and computes all episode-level and turn-level scores used for evaluation.
+             last_entry = history[-1]
+             assert last_entry["role"] != "assistant", "Last entry should not be assistant " \
+                                                       "b.c. this would be the role of the current player"
+             message = last_entry["content"]
 
+             action = {'type': 'send message', 'content': message}
+             self.log_event(from_='GM', to=player.descriptor, action=action)
 
-### The Player
+             _prompt, _response, response_message = player(history, self.current_turn)
+
+             # Player -> GM
+             action = {'type': 'get message', 'content': response_message}
+             self.log_event(from_=player.descriptor, to="GM", action=action, call=(_prompt, _response))
+
+             # GM -> GM
+             self.__validate_parse_and_add_player_response(player, response_message)
+         self._on_after_turn(self.current_turn)
+         self.current_turn += 1
+     self._on_after_game()
+```
+
+Let's have a look on this routine. As long as the game proceeds (`_does_game_proceed()`):
+
+**GM -> Player.**
+At a player's turn, the player receives its view on the history of messages (`messages_by_names`) and the last
+messages is logged (`log_event`) as a `GM->Player` event in the interactions log. 
+Then player is asked to create a response based on the history and the current turn index.
+
+**Player -> GM.**
+The player response is received and logged as a `Player->GM` event in the interactions log.
+
+**GM -> GM.**
+The game master received the player response and validates its content. When the 
+validation is successful then the response is added to all player's history and 
+the next player's turn is performed with the same procedure.
+
+This shows that the logging is already done systematically when using the `DialogueGameMaster`.
+Still, there are several hooks for you to customize the gameplay:
+
+- `def _on_setup(self, **kwargs)` which must be implemented. Use `add_player()` here to add the players.
+- `def _does_game_proceed(self) -> bool` which must be implemented. Decides if the game can continue.
+- `def _validate_player_response(self, player: Player, utterance: str) -> bool` to decide if an utterance should be added. This is also the place to check for game end conditions. 
+- `def _on_parse_response(self, player: Player, utterance: str) -> Tuple[str, bool]` to decide if a response utterance should be modified. If not simply return the utterance.
+        When a modified utterance and a true value is returned, then a 'parse' event is logged.
+- `def _after_add_player_response(self, player: Player, utterance: str)` to add the utterance to other player's history, if necessary.
+        To do this use the method `add_user_message(other_player,utterance)`.
+- the general game hooks `_on_before_game()` and `_on_before_game()`
+- the general turn hooks `_on_before_turn(turn_idx)` and `_on_after_turn(turn_idx)`
+
+Overall the game master acts here as a moderator between the players and the players actually never directly talk to each other.
+
+For the `taboo` game we use the setup hook to set instance specific values and
+to setup the `WordDescriber` and `WordGuesser` which are the `Player` for the game.
+The player could also be LLMs defined by the `player_backends` descriptor string.
+
+```python
+ def _on_setup(self, **game_instance):
+     logger.info("_on_setup")
+     self.game_instance = game_instance
+
+     self.describer = WordDescriber(self.player_backends[0], self.max_turns)
+     self.guesser = WordGuesser(self.player_backends[1])
+
+     self.add_player(self.describer)
+     self.add_player(self.guesser)
+```
+
+We use the general game hook to set the initial prompts for both players
+
+```python
+def _on_before_game(self):
+  self.add_user_message(self.describer, self.describer_initial_prompt)
+  self.add_user_message(self.guesser, self.guesser_initial_prompt)
+```
+
+Then we must decide if the guessing should continue like
+
+```python
+ def _does_game_proceed(self):
+     if self.invalid_response:
+         self.log_to_self("invalid format", "abort game")
+         return False
+     if self.clue_error is not None:
+         return False 
+     if self.current_turn >= self.max_turns:
+         self.log_to_self("max turns reached", str(self.max_turns))
+         return False
+     return True
+```
+
+And we have to check if the player response is actually in the valid format:
+
+```python
+def _validate_player_response(self, player, utterance: str) -> bool:
+  if player == self.guesser:
+      if not utterance.startswith("GUESS:"):
+          self.invalid_response = True
+          return False
+  if player == self.describer:
+      if not utterance.startswith("CLUE:"):
+          self.invalid_response = True
+          return False
+      errors = check_clue(utterance, self.target_word, self.related_words)
+      if errors:
+          error = errors[0]
+          self.clue_error = error
+          return False
+  self.log_to_self("valid format", "continue")
+  return True
+```
+
+We see that this is also the place to potentially detect violations of the game rules.
+Now we can also modify the message and for example log the responses without the prefixes.
+
+```python
+def _on_parse_response(self, player, utterance: str) -> Tuple[str, bool]:
+  if player == self.guesser:
+      utterance = utterance.replace("GUESS:", "")
+      self.guess_word = utterance.lower()
+      self.log_to_self("guess", self.guess_word)
+  if player == self.describer:
+      utterance = utterance.replace("CLUE:", "")
+      self.log_to_self("clue", utterance)
+  return utterance, False
+```
+
+The (possibly modified) response is then automatically added the player's history which is acting.
+Still, for two-player games we have to add the response to the history of the other player as well.
+
+```python
+def _after_add_player_response(self, player, utterance: str):
+    if player == self.describer:
+        utterance = f"CLUE: {utterance}."
+        self.add_user_message(self.guesser, utterance)
+    if player == self.guesser:
+        if self.guess_word != self.target_word:
+            utterance = f"GUESS: {self.guess_word}."
+            self.add_user_message(self.describer, utterance)
+```
+
+Finally, we need to use the general turn method to additionally log the initial prompt for the second player 
+and not only the most recent one (as automatically done by the `DialogueGameMaster`).
+
+```python
+def _on_before_turn(self, turn_idx: int):
+    if turn_idx == 0:
+        self.log_message_to(self.guesser, self.guesser_initial_prompt)
+```
+
+### GameResourceLocator class
+
+Note that the game masters are subclasses of the game resource locator.
+This class provides methods to access, load and store files from within the game directory.
+
+You should access resource only via the game resource locator! The locator knows how to refer to them.
+For example use: `gm.load_json("my_file")` which is located directly at your game directory `game/my_file.json`.
+You can access subdirectories by giving `gm.load_json("sub/my_file")` in `game/sub/my_file.json`.
+
+The expected game folder structure would be as follows:
+```
+games
+  ├──mygame
+  │     ├── in
+  │     │   └── instances.json
+  │     ├── resources
+  │     │   └── initial_prompt.template
+  │     ├── instancegenerator.py
+  │     └── master.py
+  ...
+```
+
+The resource locator tries to load files from the respective `mygame` directory in the games folder.
+
+### Player class
 
 A `Player` object receives `messages` and returns a textual response.
 A player generates this response either as a `_api_response()`
@@ -134,7 +311,7 @@ class WordGuesser(Player):
       return f'Pear'
 ```
 
-### Generating game instances
+### GameInstanceGenerator class
 
 In order to let agents play a game, you need a description that instantiate single episodes.
 For example, in the taboo game, each episode is played with a specific target word that also comes with a list of other, related and forbidden words.
