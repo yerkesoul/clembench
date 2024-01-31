@@ -20,7 +20,11 @@ class PathGuesser(Player):
 
     def __init__(self, model_name):
         super().__init__(model_name)
-
+        
+    def _custom_response(self, messages, turn_idx):
+        # mock response
+        random_path = random.choice(["North", "South", "East", "West"])
+        return f' Instruction: go to {random_path}'
 
 class PathDescriber(Player):
 
@@ -28,7 +32,9 @@ class PathDescriber(Player):
         super().__init__(model_name)
         self.max_turns = max_turns
 
-
+    def _custom_response(self, messages, turn_idx):
+        return f"This is the message {messages}"
+            
     def get_directions(node, direction_list):
         node_directions = None  
         for i in direction_list:
