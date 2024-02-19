@@ -1,0 +1,25 @@
+Let us play a game. The goal is to visit every node of the graph with the fewest number of steps possible. I want you to visit every node in the graph, deciding whether to go north, south, left, or right. Also, it is important to stop the game on time once you understand that all nodes of the graph have been visited. You are in a $DIM$ and there are $NUM$  nodes, edges connect the nodes. (M, N) is situated in the M row and N column, while (0,0) is in the very lower-left corner and $UP_RIGHT$ is in the very upper-right corner. Here is an example of making steps and stopping:
+
+You are in the initial node (3,1). Currently available directions: south, west. What is your next instruction?
+GO: west
+You have made a step forward and now you are in the node (2,1). Currently available directions: east, south. What is your next instruction?
+GO: north
+The move is not valid. Please try again. You are still in the node (2,1). Currently available directions:  east, south.
+GO: east
+You have made a step backward and now you are back in the node (3,1). Currently available directions: south, west. What is your next instruction?(A note for you: please take into account that you just returned to your initial position)
+GO: south
+
+Note:this process continues until you haven’t visited every node. Once you have understood that your goal has been reached, you stop the game…
+
+You have made a step forward and now you are in the node (4,0). Currently available directions: south. What is your next instruction?
+DONE
+
+Remember! You can answer only following these constructions: 
+“GO: <direction>”: you use only this construction to give directions. 
+“DONE”: you use only this construction to stop the game.
+The game starts now and you need to make your first step:
+
+Remember! Once you understand that you have visited all the nodes of the graph, stop the game immediately!
+ Important! Make an effort to keep moving forward and avoid getting stuck in one area of the graph, only making backward steps. But you are allowed to make backward steps, but do it only it is necessary. Remember that number of steps you can take is limited.
+
+The game starts now. You are in the initial node $IN_NODE$. Currently available directions: $INITIAL_DIRECTIONS$. What is your next instruction?
