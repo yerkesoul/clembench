@@ -308,9 +308,12 @@ class GameMaster(GameRecorder):
         raise NotImplementedError()
 
 
-class GameScorer(GameRecorder):
-    def __init__(self, name: str):
+class GameScorer(GameResourceLocator):
+
+    def __init__(self, name: str, experiment: Dict, game_instance: Dict):
         super().__init__(name)
+        self.experiment = experiment
+        self.game_instance = game_instance
         """ Stores values of score computation """
         self.scores = {
             "turn scores": {},
@@ -336,48 +339,42 @@ class GameScorer(GameRecorder):
         self.scores["episode scores"][score_name] = score_value
         self.logger.info(f"{self.name}: Logged episode score {score_name}={score_value}.")
 
-    #def log_experiment(self, **kwargs):
-    #    """
-    #    Log all experiment-specific data here, as you would set it up in the gamemaster.setup() function.
-    #    """
-    #    raise NotImplementedError()
-                        
     def compute_scores(self, episode_interactions: Dict) -> None:
-        self.episode_interactions = episode_interactions
-        self.score_turns()
-        self.score_game()
+        self.score_turns(episode_interactions)
+        self.score_game(episode_interactions)
 
-    def score_turns(self) -> None:
-        "Loop over turns, calculate and log turn-specific scores"
+    def score_turns(self, episode_interactions: Dict) -> None:
+        # Loop over turns, calculate and log turn-specific scores
         raise NotImplementedError()
-    
-    def score_game(self) -> None:
-        self.score_game_end()
-        self.score_requests()
-        self.log_main_score()
 
-    def score_game_end(self) -> None:
-        aborted = int(self.episode_interactions[ms.METRIC_ABORTED])
-        lose = int(self.episode_interactions[ms.METRIC_LOSE]) if not aborted else 0
-        success =  1 - lose if not aborted else 0
+    def score_game(self, episode_interactions: Dict) -> None:
+        self.score_game_end(episode_interactions)
+        self.score_requests(episode_interactions)
+        self.log_main_score(episode_interactions)
+
+    def score_game_end(self, episode_interactions: Dict) -> None:
+        aborted = int(episode_interactions[ms.METRIC_ABORTED])
+        lose = int(episode_interactions[ms.METRIC_LOSE]) if not aborted else 0
+        success = 1 - lose if not aborted else 0
 
         self.log_episode_score(ms.METRIC_ABORTED, aborted)
         self.log_episode_score(ms.METRIC_LOSE, lose)
         self.log_episode_score(ms.METRIC_SUCCESS, success)
 
-    def score_requests(self):
+    def score_requests(self, episode_interactions: Dict):
         # logging total request count, parsed, violated, and success ratio of parsed requests over all requests
-        request_count = self.episode_interactions[ms.METRIC_REQUEST_COUNT] # could also be calculated by adding parsed and violated requests
-        parsed_requests = self.episode_interactions[ms.METRIC_REQUEST_COUNT_PARSED]
-        violated_requests = self.episode_interactions[ms.METRIC_REQUEST_COUNT_VIOLATED]
+        request_count = episode_interactions[
+            ms.METRIC_REQUEST_COUNT]  # could also be calculated by adding parsed and violated requests
+        parsed_requests = episode_interactions[ms.METRIC_REQUEST_COUNT_PARSED]
+        violated_requests = episode_interactions[ms.METRIC_REQUEST_COUNT_VIOLATED]
 
         self.log_episode_score(ms.METRIC_REQUEST_COUNT, request_count)
         self.log_episode_score(ms.METRIC_REQUEST_COUNT_PARSED, parsed_requests)
         self.log_episode_score(ms.METRIC_REQUEST_COUNT_VIOLATED, violated_requests)
         self.log_episode_score(ms.METRIC_REQUEST_SUCCESS, parsed_requests / request_count)
 
-    def log_main_score(self):
-        "Replace this function call with a function that logs your main score aka BENCH_SCORE"
+    def log_main_score(self, episode_interactions: Dict):
+        # Replace this function call with a function that logs your main score aka BENCH_SCORE
         raise NotImplementedError()
 
 
@@ -691,19 +688,20 @@ class GameBenchmark(GameResourceLocator):
                     stdout_logger.info(f"Skip experiment {experiment_name}")
                     continue
                 stdout_logger.info(f"Scoring: {experiment_name}")
-                # experiment_config = self.load_results_json(f"{experiment_dir}/experiment_{experiment_name}", dialogue_pair)
+                experiment_config = self.load_results_json(f"{experiment_dir}/experiment_{experiment_name}",
+                                                           dialogue_pair)
                 episode_dirs = [file for file in os.listdir(experiment_path)
                                 if os.path.isdir(os.path.join(experiment_path, file))]
                 error_count = 0
                 for episode_dir in tqdm(episode_dirs, desc="Scoring episodes"):
                     try:
                         rel_episode_path = f"{experiment_dir}/{episode_dir}"
-                        # game_instance = self.load_results_json(f"{rel_episode_path}/instance", dialogue_pair)
+                        game_instance = self.load_results_json(f"{rel_episode_path}/instance",
+                                                               dialogue_pair)
                         game_interactions = self.load_results_json(f"{rel_episode_path}/interactions",
                                                                    dialogue_pair)
 
-                        game_scorer = self.create_game_scorer() # (experiment_config, model_pair)
-                        # game_scorer.log_experiment(**game_instance) # was originally game_master.setup() but I don't see why it would be needed to compute scores
+                        game_scorer = self.create_game_scorer(experiment_config, game_instance)
                         game_scorer.compute_scores(game_interactions)
                         game_scorer.store_scores(dialogue_pair, rel_episode_path)
                     except Exception:  # continue with other episodes if something goes wrong
@@ -848,6 +846,9 @@ class GameBenchmark(GameResourceLocator):
         return False
 
     def create_game_master(self, experiment: Dict, player_backends: List[str]) -> GameMaster:
+        raise NotImplementedError()
+
+    def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         raise NotImplementedError()
 
 
