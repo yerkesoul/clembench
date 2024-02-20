@@ -98,7 +98,7 @@ if __name__ == "__main__":
                                  "Be careful with high values which might lead to exceed your API token limits."
                                  "Default: 100.")
     run_parser.add_argument("-i", "--instances_name", type=str, default="instances",
-                            required=True, help="The instances file name (.json suffix will be added automatically.")
+                            help="The instances file name (.json suffix will be added automatically.")
 
     score_parser = sub_parsers.add_parser("score")
     score_parser.add_argument("-e", "--experiment_name", type=str,
