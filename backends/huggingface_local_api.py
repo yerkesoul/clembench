@@ -83,6 +83,12 @@ def load_config_and_tokenizer(model_spec: backends.ModelSpec) -> Union[AutoToken
     else:  # few models, especially older ones, might not have their context size in the config
         context_size = FALLBACK_CONTEXT_SIZE
 
+    # stopping transformers pad_token_id warnings
+    # check if tokenizer has no set pad_token_id:
+    if not tokenizer.pad_token_id:  # if not set, pad_token_id is None
+        # preemptively set pad_token_id to eos_token_id as automatically done to prevent warning at each generation:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+
     return tokenizer, model_config, context_size
 
 
