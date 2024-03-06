@@ -110,6 +110,16 @@
     "backend": "anthropic"
   },
   {
+    "model_name": "claude-3-opus-20240229",
+    "model_id": "claude-3-opus-20240229",
+    "backend": "anthropic"
+  },
+  {
+    "model_name": "claude-3-sonnet-20240229",
+    "model_id": "claude-3-sonnet-20240229",
+    "backend": "anthropic"
+  },
+  {
     "model_name": "luminous-supreme-control",
     "model_id": "luminous-supreme-control",
     "backend": "alephalpha"
