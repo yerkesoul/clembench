@@ -419,12 +419,14 @@ class DialogueGameMaster(GameMaster):
 
     def play(self) -> None:
         self._on_before_game()
-        while self._does_game_proceed():
+        inner_break = False
+        while not inner_break and self._does_game_proceed():
             self.log_next_turn()  # not sure if we want to do this always here (or add to _on_before_turn)
             self._on_before_turn(self.current_turn)
             self.logger.info(f"{self.name}: %s turn: %d", self.name, self.current_turn)
             for player in self.__player_sequence():
                 if not self._does_game_proceed():
+                    inner_break = True  # break outer loop without calling _does_game_proceed again
                     break  # potentially stop in between player turns
                 self.prompt(player)
                 while self._should_reprompt(player):
@@ -498,6 +500,9 @@ class DialogueGameMaster(GameMaster):
         self.add_message(player, utterance, role="assistant")
 
     def __validate_parse_and_add_player_response(self, player: Player, utterance: str):
+        # todo: it seems we should change the order here: Parse should come first, and then validate.
+        # While parse might throw a parsing (format error) validate would check solely for satisfied game rules.
+        # Note: this would allow to cut off too long responses (during parse) and to only validate on the cut off piece.
         if self._validate_player_response(player, utterance):
             utterance = self.__parse_response(player, utterance)
             self.add_assistant_message(player, utterance)
