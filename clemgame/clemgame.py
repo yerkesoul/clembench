@@ -429,7 +429,7 @@ class DialogueGameMaster(GameMaster):
                 self.prompt(player)
                 while self._should_reprompt(player):
                     self._on_before_reprompt(player)
-                    self.prompt(player, is_reprompt = True)
+                    self.prompt(player, is_reprompt=True)
             self._on_after_turn(self.current_turn)
             self.current_turn += 1
         self._on_after_game()
@@ -441,7 +441,7 @@ class DialogueGameMaster(GameMaster):
 
         last_entry = history[-1]
         assert last_entry["role"] != "assistant", "Last entry should not be assistant " \
-                                                    "b.c. this would be the role of the current player"
+                                                  "b.c. this would be the role of the current player"
         message = last_entry["content"]
 
         action_type = 'send message' if not is_reprompt else 'send message (reprompt)'
