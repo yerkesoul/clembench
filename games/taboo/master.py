@@ -1,8 +1,9 @@
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 
 import numpy as np
 
-from clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster
+from backends import Model
+from clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemgame import get_logger
@@ -10,25 +11,22 @@ from clemgame import file_utils, string_utils
 
 import nltk
 from nltk.corpus import stopwords
+from nltk.stem.snowball import SnowballStemmer
 
 nltk.download('stopwords', quiet=True)
 EN_STOPWORDS = stopwords.words('english')
 
-nltk.download('wordnet', quiet=True)
-EN_LEMMATIZER = nltk.stem.WordNetLemmatizer()
+EN_STEMMER = SnowballStemmer("english")
 
 GAME_NAME = "taboo"
-
-MAX_RETRIES = 5
-INVALID = np.nan
 
 logger = get_logger(__name__)
 
 
 class WordGuesser(Player):
 
-    def __init__(self, model_name):
-        super().__init__(model_name)
+    def __init__(self, model: Model):
+        super().__init__(model)
 
     def _custom_response(self, messages, turn_idx):
         # mock response
@@ -37,8 +35,8 @@ class WordGuesser(Player):
 
 class WordDescriber(Player):
 
-    def __init__(self, model_name, max_turns):
-        super().__init__(model_name)
+    def __init__(self, model: Model, max_turns):
+        super().__init__(model)
         self.max_turns = max_turns
 
     def _custom_response(self, messages, turn_idx):
@@ -48,41 +46,35 @@ class WordDescriber(Player):
             raise Exception("We should not be here...")
 
 
-def check_clue(utterance: str, target_word: str, related_words: List[str]) -> List[Dict]:
-    utterance = utterance.replace("CLUE:", "")
-    utterance = utterance.lower()
-    utterance = string_utils.remove_punctuation(utterance)
-    # simply contain checks
-    if target_word in utterance:
-        return [{
-            "message": f"Target word '{target_word}' in clue",
-            "type": 0
-        }]
-    for related_word in related_words:
-        if related_word in utterance:
-            return [{
-                "message": f"Related word '{related_word}' in clue",
-                "type": 1
-            }]
-
-    # lemma checks
-    utterance = utterance.split(" ")
-    filtered_clue = [word for word in utterance if word not in EN_STOPWORDS]
-    target_lemma = EN_LEMMATIZER.lemmatize(target_word)
-    related_lemmas = [EN_LEMMATIZER.lemmatize(related_word) for related_word in related_words]
+def check_clue(clue: str, target_word: str, related_words: List[str],
+               stemmer=EN_STEMMER, return_clue=False) -> Union[Tuple[str, List[Dict]], List[Dict]]:
+    clue = clue.replace("CLUE:", "")
+    clue = clue.strip()
+    clue = clue.lower()
+    clue = string_utils.remove_punctuation(clue)
+    clue_words = clue.split(" ")
+    clue_words = [clue_word for clue_word in clue_words if clue_word not in EN_STOPWORDS]
+    clue_word_stems = [stemmer.stem(clue_word) for clue_word in clue_words]
     errors = []
-    for clue_word in filtered_clue:
-        clue_lemma = EN_LEMMATIZER.lemmatize(clue_word)
-        if clue_lemma == target_lemma:
-            return [{
-                "message": f"Target word '{target_word}' is morphological similar to clue word '{clue_word}'",
+    target_word_stem = stemmer.stem(target_word)
+    related_word_stems = [stemmer.stem(related_word) for related_word in related_words]
+
+    for clue_word, clue_word_stem in zip(clue_words, clue_word_stems):
+        if target_word_stem == clue_word_stem:
+            errors.append({
+                "message": f"Target word '{target_word}' (stem={target_word_stem}) "
+                           f"is similar to clue word '{clue_word}' (stem={clue_word_stem})",
                 "type": 0
-            }]
-        if clue_lemma in related_lemmas:
-            return [{
-                "message": f"Related word is morphological similar to clue word '{clue_word}'",
-                "type": 1
-            }]
+            })
+        for related_word, related_word_stem in zip(related_words, related_word_stems):
+            if related_word_stem == clue_word_stem:
+                errors.append({
+                    "message": f"Related word '{related_word}' (stem={related_word_stem}) "
+                               f"is similar to clue word '{clue_word}' (stem={clue_word_stem})",
+                    "type": 1
+                })
+    if return_clue:
+        return clue, errors
     return errors
 
 
@@ -93,8 +85,8 @@ class Taboo(DialogueGameMaster):
     word or related words in their explanation. Morphology is checked in check_clue().
     """
 
-    def __init__(self, experiment: Dict, player_backends: List[str]):
-        super().__init__(GAME_NAME, experiment, player_backends)
+    def __init__(self, experiment: Dict, player_models: List[Model]):
+        super().__init__(GAME_NAME, experiment, player_models)
         self.max_turns: int = experiment["max_turns"]
         self.describer_initial_prompt = self.experiment["describer_initial_prompt"]
         self.guesser_initial_prompt = self.experiment["guesser_initial_prompt"]
@@ -112,8 +104,8 @@ class Taboo(DialogueGameMaster):
         self.describer_initial_prompt = self.describer_initial_prompt.replace("$N$", str(self.max_turns))
         self.guesser_initial_prompt = self.guesser_initial_prompt.replace("$N$", str(self.max_turns))
 
-        self.describer = WordDescriber(self.player_backends[0], self.max_turns)
-        self.guesser = WordGuesser(self.player_backends[1])
+        self.describer = WordDescriber(self.player_models[0], self.max_turns)
+        self.guesser = WordGuesser(self.player_models[1])
 
         self.add_player(self.describer)
         self.add_player(self.guesser)
@@ -124,7 +116,8 @@ class Taboo(DialogueGameMaster):
 
     def _on_before_game(self):
         self.add_user_message(self.describer, self.describer_initial_prompt)
-        self.add_user_message(self.guesser, self.guesser_initial_prompt)
+        # add guesser prompt only later after first clue is given
+        # thus we avoid the problem that the history contains consecutive messages of "user"
 
     def _does_game_proceed(self):
         """Proceed as long as the word hasn't been guessed and the maximum
@@ -134,14 +127,10 @@ class Taboo(DialogueGameMaster):
             self.log_to_self("invalid format", "abort game")
             return False
         if self.clue_error is not None:
-            error_type = self.clue_error["type"]
-            if error_type == 0:
-                self.log_to_self("invalid clue", "clue contains target word")
-            if error_type == 1:
-                self.log_to_self("invalid clue", "clue contains related word")
+            self.log_to_self("invalid clue", self.clue_error["message"])
             return False  # stop game if clue is wrong (for now)
         if self.guess_word == self.target_word:
-            self.log_to_self("correct guess", self.guess_word)
+            self.log_to_self("correct guess", "end game")
             return False
         if self.current_turn >= self.max_turns:
             self.log_to_self("max turns reached", str(self.max_turns))
@@ -150,40 +139,40 @@ class Taboo(DialogueGameMaster):
 
     def _validate_player_response(self, player: Player, utterance: str) -> bool:
         if player == self.guesser:
+            # validate response format
             if not utterance.startswith("GUESS:"):
                 self.invalid_response = True
                 return False
+            self.log_to_self("valid response", "continue")
+            # extract guess word
+            guess_word = utterance.replace("GUESS:", "")
+            guess_word = guess_word.strip()
+            guess_word = guess_word.lower()
+            guess_word = string_utils.remove_punctuation(guess_word)
+            self.guess_word = guess_word.lower()
+            self.log_to_self("valid guess", self.guess_word)
         if player == self.describer:
+            # validate response format
             if not utterance.startswith("CLUE:"):
                 self.invalid_response = True
                 return False
-            errors = check_clue(utterance, self.target_word, self.related_words)
+            self.log_to_self("valid response", "continue")
+            # validate clue
+            clue, errors = check_clue(utterance, self.target_word, self.related_words, return_clue=True)
             if errors:
-                error = errors[0]
+                error = errors[0]  # highlight single error
                 self.clue_error = error
                 return False
-        self.log_to_self("valid format", "continue")
+            self.log_to_self("valid clue", clue)
         return True
-
-    def _on_parse_response(self, player: Player, utterance: str) -> Tuple[str, bool]:
-        if player == self.guesser:
-            utterance = utterance.replace("GUESS:", "")
-            utterance = utterance.strip()
-            utterance = utterance.lower()
-            utterance = string_utils.remove_punctuation(utterance)
-            self.guess_word = utterance.lower()
-            self.log_to_self("guess", self.guess_word)
-        if player == self.describer:
-            utterance = utterance.replace("CLUE:", "")
-            utterance = utterance.strip()
-            utterance = string_utils.remove_punctuation(utterance)
-            self.log_to_self("clue", utterance)
-        return utterance, False
 
     def _after_add_player_response(self, player: Player, utterance: str):
         if player == self.describer:
-            utterance = f"CLUE: {utterance}."
-            self.add_user_message(self.guesser, utterance)
+            if self.current_turn == 0:  # special case: merge first clue into prompt
+                prompt_with_first_clue = f"{self.guesser_initial_prompt}\n\n{utterance}"
+                self.add_user_message(self.guesser, prompt_with_first_clue)
+            else:
+                self.add_user_message(self.guesser, utterance)
         if player == self.guesser:
             # NOTE(jg): would be interesting to test whether the model behaves
             #   differently when knowing about the guesser's guess or not knowing
@@ -192,16 +181,12 @@ class Taboo(DialogueGameMaster):
 
             # if not correct, then we add the guess and go on; otherwise we will stop immediately
             if self.guess_word != self.target_word:
-                utterance = f"GUESS: {self.guess_word}."
                 self.add_user_message(self.describer, utterance)
 
-    def _on_before_turn(self, turn_idx: int):
-        if turn_idx == 0:
-            # Log initial prompt for Player 2
-            # Note: This should somehow be handled in the framework
-            # for now the framework only logs automatically the most recent message;
-            # which would be player 1's initial clue.
-            self.log_message_to(self.guesser, self.guesser_initial_prompt)
+
+class TabooScorer(GameScorer):
+    def __init__(self, experiment: Dict, game_instance: Dict):
+        super().__init__(GAME_NAME, experiment, game_instance)
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         """ Episode level scores"""
@@ -293,8 +278,11 @@ class TabooGameBenchmark(GameBenchmark):
     def get_description(self):
         return "Taboo game between two agents where one has to describe a word for the other to guess."
 
-    def create_game_master(self, experiment: Dict, player_backends: List[str]) -> GameMaster:
-        return Taboo(experiment, player_backends)
+    def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
+        return Taboo(experiment, player_models)
+
+    def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
+        return TabooScorer(experiment, game_instance)
 
 
 def main():
