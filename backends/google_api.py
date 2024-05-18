@@ -130,13 +130,13 @@ class GoogleModel(backends.Model):
             generation_config=generation_config)
 
         response_text = ''
-        response = {}
+        response_json = {}
         if response.parts:
             response_text = response.text
-            response = {"text": response_text}
+            response_json = {"text": response_text}
 
         if response_text == '':
             logger.error(
                 f"The backend {self.model_spec.__getattribute__('model_id')} returned empty string!")
 
-        return encoded_messages_for_logging, response, response_text
+        return encoded_messages_for_logging, response_json, response_text
