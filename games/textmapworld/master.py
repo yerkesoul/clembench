@@ -5,7 +5,7 @@ import ast
 from backends import Model, CustomResponseModel
 from clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
-from games.textmapworld.utils import loop_identification, get_directions, string_available_directions, have_common_element, clear_utterance, get_nextnode_label
+from games.textmapworld.utils import loop_identification, get_directions, string_available_directions, have_common_element, clear_utterance, get_nextnode_label, count_word_in_sentence
 from queue import Queue
 from copy import deepcopy
 from clemgame import get_logger
@@ -13,11 +13,8 @@ from clemgame import file_utils, string_utils
 import random
 GAME_NAME = "textmapworld"
 logger = get_logger(__name__)
-
+ 
 "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
-reprompting = False
-double_cycle = False
-loop_reprompting = ""
 INVALID = 0
 "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
 
@@ -103,6 +100,8 @@ class PathDescriber(Player):
                     utterance = content
                     break
         validation =self.validate_answer(utterance)
+        if self.directions_next_node == None:
+            return "Game needs to be aborted"
         current_location = self.current_node
         if self.ambiguity != None:
             current_location = self.current_node.split("_")[0] ##because if there is ambiguity, the node is saved as "Kitchen_(1,2)"
@@ -129,7 +128,7 @@ class Textmapworld(DialogueGameMaster):
     def __init__(self, experiment: Dict, player_models : List[Model]):
         super().__init__(GAME_NAME, experiment, player_models)
         self.steps_made=0
-        self.max_turns=30
+        self.max_turns = 20
         self.game_error = None
         self.game_stop=False
         self.invalid_response = False
@@ -151,6 +150,10 @@ class Textmapworld(DialogueGameMaster):
         self.add_player(self.guesser)
         self.add_player(self.describer)
         
+        self.reprompting_parameter = game_instance["Loop_Reminder"]
+        self.loop_reprompting = game_instance["Loop_Reminder_Text"]
+        self.maxturns_parameter = game_instance["Max_Turns_Reminder"]
+        self.max_turns_reprompting = game_instance["Max_Turns_Reminder_Text"]
 
     def _on_before_game(self):
 
@@ -164,10 +167,8 @@ class Textmapworld(DialogueGameMaster):
         self.changed_initial_directions = string_available_directions(self.initial_directions)
         self.playerA_initial_prompt = self.playerA_initial_prompt.replace("$INITIAL_DIRECTIONS$",self.changed_initial_directions)
         self.add_user_message(self.guesser, self.playerA_initial_prompt)
-        self.reprompting_parameter = False
         self.visited_nodes = []
         self.visited_nodes.append(self.initial_position)
-        
 
     def _does_game_proceed(self):
 
@@ -197,12 +198,20 @@ class Textmapworld(DialogueGameMaster):
     def _validate_player_response(self, player: Player, utterance: str) -> bool:
 
         if player == self.guesser:
+            count_go = count_word_in_sentence(utterance.lower(), self.move_construction.lower())
+            if count_go > 1:
+                self.invalid_response = True
+                return False
             if not utterance.startswith(self.move_construction) and not self.stop_construction.lower() in utterance.lower():
                 self.invalid_response = True
                 return False
             if self.stop_construction.lower() in utterance.lower():
                 self.game_stop = True
-
+            
+        if player == self.describer:
+            if utterance == "Game needs to be aborted":
+                self.invalid_response = True
+                return False
         return True
 
 
@@ -213,10 +222,13 @@ class Textmapworld(DialogueGameMaster):
         if player == self.guesser:
             self.add_user_message(self.describer, utterance)
         if player == self.describer:
-            if self.reprompting_parameter and loop_identification(self.visited_nodes, double_cycle):
+            if self.reprompting_parameter and loop_identification(self.visited_nodes, False):
                     self.log_to_self("loop_detected", "Loop detected in the visited nodes list")
                     self.reprompting_parameter = False
-                    utterance = reprompting +"\n"+utterance
+                    utterance = self.loop_reprompting +"\n"+utterance
+            if self.maxturns_parameter and  self.current_turn == self.max_turns-2:
+                self.maxturns_parameter = False
+                utterance = self.max_turns_reprompting +"\n"+utterance
             self.add_user_message(self.guesser, utterance)
 
                 
@@ -230,7 +242,7 @@ class Textmapworld(DialogueGameMaster):
             if not self.game_stop and not self.invalid_response and not self.limit_reached and not self.game_error:
                 self.log_to_self(type_ = "move", value = json.dumps({"old": old_node, "new": new_node}))
                 self.visited_nodes.append(new_node)
-                if reprompting and loop_identification(self.visited_nodes, double_cycle):
+                if self.reprompting_parameter and loop_identification(self.visited_nodes, False):
                     self.visited_nodes.clear()
                     self.reprompting_parameter = True
 
@@ -317,6 +329,7 @@ class GraphGameScorer(GameScorer):
                         valid_moves += 1
                     else:
                         invalid_moves += 1
+                    
                     best_moves = self.find_best_moves(current, visited)
                     new_move = tuple(cont["new"]) if self.game_type=="unnamed_graph" else cont["new"]
                     if (current, new_move) in best_moves:
@@ -330,7 +343,7 @@ class GraphGameScorer(GameScorer):
                     seen.update(self.adj(current))
                     loops.append(current)
                     visited.add(current)
-                    if loop_identification(loops, double_cycle):
+                    if loop_identification(loops, False):
                         count_loops += 1
                         loops.clear()
                     
@@ -346,31 +359,35 @@ class GraphGameScorer(GameScorer):
         if aborted:
             self.log_episode_score(METRIC_ABORTED, 1)
             self.log_episode_score(METRIC_SUCCESS, 0)
+            self.log_episode_score(METRIC_LOSE, 0)
         else:
             if not stopped:
                 self.log_episode_score(METRIC_ABORTED, 1)
                 self.log_episode_score(METRIC_SUCCESS, 0)
+                self.log_episode_score(METRIC_LOSE, 0)
             else:
                 if visited == set(self.nodes):
                     self.log_episode_score(METRIC_SUCCESS, 1)
                     self.log_episode_score(METRIC_ABORTED, 0)
+                    self.log_episode_score(METRIC_LOSE, 0)
                 else:
                     self.log_episode_score(METRIC_SUCCESS, 0)
                     self.log_episode_score(METRIC_ABORTED, 0)
+                    self.log_episode_score(METRIC_LOSE, 1)
 
         exploration = (len(visited)/len(self.nodes))*100
         efficiency = (sum(good_move)/len(good_move))*100
-        self.log_episode_score('moves', valid_moves + invalid_moves)
-        self.log_episode_score('valid_moves', valid_moves)
-        self.log_episode_score('invalid_moves', invalid_moves)
-        self.log_episode_score('stopped', int(stopped))
-        self.log_episode_score('turns_limit', int(turns_limit_reached))
-        self.log_episode_score('loops', count_loops)
-        self.log_episode_score('number_visited', len(visited))
-        self.log_episode_score('seen', len(seen))
-        self.log_episode_score('efficiency', efficiency  if stopped else 0)
-        self.log_episode_score('exploration', exploration  if stopped else 0)
-        self.log_episode_score(BENCH_SCORE, (2*efficiency*exploration)/(efficiency+exploration) if stopped else 0)
+        self.log_episode_score('moves', valid_moves + invalid_moves if stopped else np.NaN)
+        self.log_episode_score('valid_moves', valid_moves if stopped else np.NaN)
+        self.log_episode_score('invalid_moves', invalid_moves if stopped else np.NaN) 
+        self.log_episode_score('stopped', int(stopped) if stopped else np.NaN)
+        self.log_episode_score('turns_limit', int(turns_limit_reached) if stopped else np.NaN)
+        self.log_episode_score('loops', count_loops if stopped else np.NaN)
+        self.log_episode_score('number_visited', len(visited) if stopped else np.NaN)
+        self.log_episode_score('seen', len(seen) if stopped else np.NaN)
+        self.log_episode_score('efficiency', efficiency  if stopped else np.NaN)
+        self.log_episode_score('exploration', exploration  if stopped else np.NaN)
+        self.log_episode_score(BENCH_SCORE, (2*efficiency*exploration)/(efficiency+exploration) if stopped else np.NaN)
 
 
 class GraphGameBenchmark(GameBenchmark):
