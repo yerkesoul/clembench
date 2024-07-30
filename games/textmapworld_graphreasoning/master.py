@@ -7,10 +7,11 @@ import matplotlib.pyplot as plt
 from backends import Model, CustomResponseModel
 from clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
-from games.textmapworld_graphreasoning.utils import loop_identification, get_directions, string_available_directions, have_common_element, clear_utterance, get_nextnode_label, calculate_similarity, create_graph, count_word_in_sentence
+from games.textmapworld_graphreasoning.utils import loop_identification, get_directions, string_available_directions, have_common_element, get_nextnode_label, calculate_similarity, create_graph, count_word_in_sentence
 from queue import Queue
 from copy import deepcopy
 from clemgame import get_logger
+import re
 from clemgame import file_utils, string_utils
 import random
 GAME_NAME = "textmapworld_graphreasoning"
@@ -54,7 +55,6 @@ class PathDescriber(Player):
         self.visited_nodes.append(self.current_node)
 
     def check_path_answer(self, utterance: str, directions: List[str], node, saved_node) -> List[Dict]:
-        utterance = clear_utterance(utterance, self.move_construction)
         previous_direction = get_directions(node, directions, saved_node)
         previous_dirrection_changed =  string_available_directions(previous_direction) 
         previous_dirrection_no_pq = string_utils.remove_punctuation(previous_dirrection_changed)
@@ -98,15 +98,18 @@ class PathDescriber(Player):
         for message in messages[::-1]:
             if message["role"] == "user":
                 try:
-                    content = ast.literal_eval(message["content"])["Action"]
-                    self.graph_info = ast.literal_eval(message["content"])["Graph"]
+                    content =  ast.literal_eval(message["content"])["action"]
+                    self.graph_info =  ast.literal_eval(message["content"])["graph"]
                 except:
-                    print("Error in the content:", message["content"])
-                if content.startswith(self.move_construction): 
-                    utterance = content
+                    return "Game needs to be aborted"
+                move = re.search(self.move_construction, content, re.IGNORECASE)
+                if move: 
+                    utterance = move.group(1)
                     break
         validation =self.validate_answer(utterance)
         if self.directions_next_node == None:
+            return "Game needs to be aborted"
+        if self.current_node == None:
             return "Game needs to be aborted"
         current_location = self.current_node
         if self.ambiguity != None:
@@ -148,6 +151,7 @@ class Graphreasoning(DialogueGameMaster):
         self.ambiguity = game_instance["Ambiguity"]
         self.move_construction =  game_instance["Move_Construction"] 
         self.stop_construction = game_instance["Stop_Construction"]
+        self.response_regex = game_instance["Response_Construction"]
 
         self.guesser = PathGuesser(self.player_models[0])
         self.describer = PathDescriber(CustomResponseModel(), game_instance)
@@ -202,38 +206,50 @@ class Graphreasoning(DialogueGameMaster):
         
         return True
 
+    def _on_parse_response(self, player: Player, utterance: str) -> Tuple[str, bool]:
+
+        if player  == self.guesser:
+            utterance = utterance.replace("\n", "").strip()
+            if re.search(self.response_regex, utterance, re.IGNORECASE):
+                found = re.search(self.response_regex, utterance, re.IGNORECASE)
+            if found:
+                utterance = found.group()
+        return utterance, True
 
     def _validate_player_response(self, player: Player, utterance: str) -> bool:
 
-        if player == self.guesser:
-            try:
-                answer =  ast.literal_eval(str(utterance))
-            except:
-                self.non_processable = True
-                self.invalid_response = True
-                return False
-            
-            if 'Graph' not in answer and 'Action' not in answer:
+        if player  == self.guesser:
+
+            utterance = utterance.replace("\n", "").strip()
+            first_filter = re.search( self.response_regex, utterance, re.IGNORECASE)
+            if not first_filter:
                 self.invalid_response = True
                 return False
             else:
-                count_go = count_word_in_sentence(utterance.lower(), self.move_construction.lower())
-                if count_go > 1:
+                action = first_filter.group(1)
+                action_stop = re.search(self.stop_construction, action, re.IGNORECASE)
+                action_move = re.search(self.move_construction, action, re.IGNORECASE)
+                if action_move and action_stop:
                     self.invalid_response = True
                     return False
-                elif not answer['Action'].startswith(self.move_construction) and not self.stop_construction.lower() in answer['Action'].lower():
+                if action_stop:
+                    self.game_stop = True
+                    return True
+                count_go =  re.findall(self.move_construction, action, re.IGNORECASE)
+                if len(count_go) > 1:
                     self.invalid_response = True
                     return False
-                else:
-                    if self.stop_construction.lower() in answer['Action'].lower():
-                        self.game_stop = True
-                        return False
-                    
+                if not action_move and not action_stop:
+                    self.invalid_response = True
+                    return False
+                if action_move:
+                    return True
+                
         if player == self.describer:
             if utterance == "Game needs to be aborted":
                 self.invalid_response = True
                 return False
-            
+        self.log_to_self("Valid format", "Continue")
         return True
 
 
@@ -283,6 +299,8 @@ class GraphGameScorer(GameScorer):
         new_edges.extend(self.old_edges)
         self.edges = new_edges
         self.start = game_instance["Current_Position"]
+        self.mapping = ast.literal_eval(game_instance['Mapping'])
+        self.graph_data = {}
 
     
     def visited_all(self, visited, to_visit):
@@ -341,17 +359,22 @@ class GraphGameScorer(GameScorer):
         graphs= []
         loops = []
         count_loops = 0
+        count_graphs = 0
+        content = []
         loops.append(self.start)
 
         for turn in episode_interactions["turns"]:
             for event in turn:
                 action = event["action"]
+                if action["type"] == "non_processable":
+                    self.non_processable = True
                 if action["type"] == "aborted":
                     if action["content"]:
                         aborted = True
                 if action['type'] == "move":
                     cont = json.loads(action['content'])
                     if not cont["old"] == cont["new"]:
+                        content.append(cont["old"])
                         valid_moves += 1
                     else:
                         invalid_moves += 1
@@ -368,17 +391,27 @@ class GraphGameScorer(GameScorer):
                     seen.update(self.adj(current))
                     loops.append(current)
                     visited.add(current)
-                    if loop_identification(loops, False):
+                    if loop_identification(loops):
                         count_loops += 1
-                        loops.clear()
+
+                #if event['from']== "Player 1" and event["to"]== "GM" and action['type'] == "get message":
+                    #content.append(ast.literal_eval(action['content'])["action"])
 
                 if action['type'] == "graph":
-                    cont = ast.literal_eval(action['content'])
-                    G1= create_graph(self.nodes, self.old_edges, "original")
-                    G2= create_graph(cont['nodes'], cont['edges'], "generated")
-                    similarity_percent = calculate_similarity(G1, G2)*100
-                    graphs_similarity.append(similarity_percent)
-                    graphs.append(cont)
+                    try:
+                        count_graphs += 1
+                        self.graph_data["goal"] = self.mapping
+                        self.graph_data[count_graphs]= {}
+                        cont = ast.literal_eval(action['content'])
+                        G1= create_graph(self.nodes, self.edges, "original")
+                        G2= create_graph(cont['nodes'], cont['edges'], "generated")
+                        self.graph_data[count_graphs]["generated"] = cont
+                        similarity_percent = calculate_similarity(G1, G2)*100
+                        self.graph_data[count_graphs]["similarity"] = similarity_percent
+                        graphs_similarity.append(similarity_percent)
+                        graphs.append(cont)
+                    except:
+                        graphs_similarity.append(0)
 
                 if action['type'] == "stop":
                     if action["content"]:
@@ -410,21 +443,26 @@ class GraphGameScorer(GameScorer):
                     self.log_episode_score(METRIC_SUCCESS, 0)
                     self.log_episode_score(METRIC_ABORTED, 0)
                     self.log_episode_score(METRIC_LOSE, 1)
-                    
-        exploration = (len(visited)/len(self.nodes))*100
-        efficiency = (sum(good_move)/len(good_move))*100
+       
+        exploration = (len(visited) / len(self.nodes) * 100) if len(self.nodes) else 0
+        efficiency = (sum(good_move) / len(good_move) * 100) if good_move else 0
+        bench_score = (2 * efficiency * exploration / (efficiency + exploration)) if (efficiency+exploration) else 0
         self.log_episode_score('moves', valid_moves + invalid_moves if stopped else np.NaN)
         self.log_episode_score('valid_moves', valid_moves if stopped else np.NaN)
-        self.log_episode_score('invalid_moves', invalid_moves if stopped else np.NaN)
+        self.log_episode_score('invalid_moves', invalid_moves if stopped else np.NaN) 
         self.log_episode_score('stopped', int(stopped) if stopped else np.NaN)
         self.log_episode_score('turns_limit', int(turns_limit_reached) if stopped else np.NaN)
         self.log_episode_score('loops', count_loops if stopped else np.NaN)
         self.log_episode_score('number_visited', len(visited) if stopped else np.NaN)
         self.log_episode_score('seen', len(seen) if stopped else np.NaN)
-        self.log_episode_score('Graph similarity', graphs_similarity[-1] if stopped else np.NaN)
         self.log_episode_score('efficiency', efficiency  if stopped else np.NaN)
         self.log_episode_score('exploration', exploration  if stopped else np.NaN)
-        self.log_episode_score(BENCH_SCORE, (2*efficiency*exploration)/(efficiency+exploration) if stopped else np.NaN)
+        if graphs_similarity and stopped:
+                self.log_episode_score('graph_similarity', graphs_similarity[-1] if stopped else np.NaN)
+        else:
+            self.log_episode_score('graph_similarity', 0 if stopped else np.NaN)
+        self.log_episode_score(BENCH_SCORE, bench_score if stopped else np.NaN)
+
 
 
 class GraphGameBenchmark(GameBenchmark):

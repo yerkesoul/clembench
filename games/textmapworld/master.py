@@ -1,11 +1,12 @@
 from typing import Dict, Tuple, List
 import json
 import numpy as np
+import re
 import ast
 from backends import Model, CustomResponseModel
 from clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
-from games.textmapworld.utils import loop_identification, get_directions, string_available_directions, have_common_element, clear_utterance, get_nextnode_label, count_word_in_sentence
+from games.textmapworld.utils import loop_identification, get_directions, string_available_directions, have_common_element, get_nextnode_label, count_word_in_sentence
 from queue import Queue
 from copy import deepcopy
 from clemgame import get_logger
@@ -51,10 +52,9 @@ class PathDescriber(Player):
         self.visited_nodes.append(self.current_node)
 
 
-
     def check_path_answer(self, utterance: str, directions: List[str], node, saved_node) -> List[Dict]:
-        utterance = clear_utterance(utterance, self.move_construction)
-        previous_direction = get_directions(node, directions, saved_node)
+    
+        previous_direction = get_directions(node, directions, saved_node, self.graph_type)
         previous_dirrection_changed =  string_available_directions(previous_direction) 
         previous_dirrection_no_pq = string_utils.remove_punctuation(previous_dirrection_changed)
         if not have_common_element(utterance, previous_dirrection_no_pq):
@@ -71,7 +71,7 @@ class PathDescriber(Player):
         if errors:
             error = errors[0]
             self.game_error = error
-            self.directions_next_node = get_directions(the_last_node, self.directions, the_last_node)    
+            self.directions_next_node = get_directions(the_last_node, self.directions, the_last_node, self.graph_type )    
             self.directions_next_node = string_available_directions(self.directions_next_node)
             return "not valid"
         else:
@@ -79,7 +79,7 @@ class PathDescriber(Player):
             self.current_node = next_node_label
             if next_node_label in self.nodes:
                 self.visited_nodes.append(next_node_label)
-                list_directions_nextnode= get_directions(next_node_label, self.directions, self.current_node)
+                list_directions_nextnode= get_directions(next_node_label, self.directions, self.current_node, self.graph_type)
                 self.directions_next_node = string_available_directions(list_directions_nextnode)
                 return True
             
@@ -96,11 +96,14 @@ class PathDescriber(Player):
         for message in messages[::-1]:
             if message["role"] == "user":
                 content = message["content"]
-                if content.startswith(self.move_construction): 
-                    utterance = content
+                found = re.search(self.move_construction, content, re.IGNORECASE)
+                if found: 
+                    utterance = found.group(1).lower()
                     break
         validation =self.validate_answer(utterance)
         if self.directions_next_node == None:
+            return "Game needs to be aborted"
+        if self.current_node == None:
             return "Game needs to be aborted"
         current_location = self.current_node
         if self.ambiguity != None:
@@ -121,9 +124,6 @@ class PathDescriber(Player):
     
 
 class Textmapworld(DialogueGameMaster):
-    """
-    This class implements a graph traversal game in which player A (DecisionMaker). 
-    """
 
     def __init__(self, experiment: Dict, player_models : List[Model]):
         super().__init__(GAME_NAME, experiment, player_models)
@@ -135,7 +135,6 @@ class Textmapworld(DialogueGameMaster):
         self.limit_reached = False
 
     def _on_setup(self, **game_instance):
-
         logger.info("_on_setup")
         self.graph_type = game_instance['Game_Type']
         self.initial_position = game_instance["Current_Position"] if self.graph_type=="named_graph" else ast.literal_eval(game_instance["Current_Position"])
@@ -163,7 +162,7 @@ class Textmapworld(DialogueGameMaster):
             if self.ambiguity != None:
                 initial_directions = self.initial_position.split("_")[0]
             self.playerA_initial_prompt = self.playerA_initial_prompt.replace("$INITIAL_ROOM$", initial_directions)
-        self.initial_directions= get_directions(self.initial_position, self.directions, self.initial_position)
+        self.initial_directions= get_directions(self.initial_position, self.directions, self.initial_position, self.graph_type )
         self.changed_initial_directions = string_available_directions(self.initial_directions)
         self.playerA_initial_prompt = self.playerA_initial_prompt.replace("$INITIAL_DIRECTIONS$",self.changed_initial_directions)
         self.add_user_message(self.guesser, self.playerA_initial_prompt)
@@ -172,7 +171,6 @@ class Textmapworld(DialogueGameMaster):
 
     def _does_game_proceed(self):
 
-        "Proceed untill all nodes arent visited"
         if self.invalid_response:
             self.log_to_self("aborted", "abort game")
             return False
@@ -193,31 +191,55 @@ class Textmapworld(DialogueGameMaster):
             return False
         
         return True
+    
+
+    def _on_parse_response(self, player: Player, utterance: str) -> Tuple[str, bool]:
+
+        if player  == self.guesser:
+            utterance = utterance.replace("\n", "").strip()
+            if re.search(self.stop_construction, utterance, re.IGNORECASE):
+                found = re.search(self.move_construction, utterance, re.IGNORECASE)
+            elif re.search(self.move_construction, utterance, re.IGNORECASE):
+                found = re.search(self.stop_construction, utterance, re.IGNORECASE)
+            if found:
+                utterance = found.group()
+        return utterance, True
 
 
     def _validate_player_response(self, player: Player, utterance: str) -> bool:
 
         if player == self.guesser:
-            count_go = count_word_in_sentence(utterance.lower(), self.move_construction.lower())
-            if count_go > 1:
+            stop_action = re.search(self.stop_construction, utterance, re.IGNORECASE)
+            move_action = re.search(self.move_construction, utterance, re.IGNORECASE)
+            if move_action and stop_action:
+                #self.log_to_self("both_answers", "Both answers are present in the utterance")
                 self.invalid_response = True
                 return False
-            if not utterance.startswith(self.move_construction) and not self.stop_construction.lower() in utterance.lower():
-                self.invalid_response = True
-                return False
-            if self.stop_construction.lower() in utterance.lower():
+            if stop_action:
                 self.game_stop = True
+                return True
+            count_go =  re.findall(self.move_construction, utterance, re.IGNORECASE)
+            if len(count_go) > 1:
+                #self.log_to_self("several_goes", "There are several GOs in the utterance")
+                self.invalid_response = True
+                return False
+            if move_action:
+                return True
+            if not move_action and not stop_action:
+                self.invalid_response = True
+                return False
+
             
         if player == self.describer:
             if utterance == "Game needs to be aborted":
                 self.invalid_response = True
                 return False
+            
+        self.log_to_self("Valid format", "Continue")
         return True
 
 
     def _after_add_player_response(self, player: Player, utterance: str):
-        """Add the utterance to other player's history, if necessary.
-        To do this use the method add_user_message(other_player,utterance)."""
 
         if player == self.guesser:
             self.add_user_message(self.describer, utterance)
@@ -235,6 +257,7 @@ class Textmapworld(DialogueGameMaster):
 
 
     def _on_after_turn(self, turn_idx: int):
+
         turn_dict= self.describer.turn_information()
         old_node = turn_dict["from"]
         new_node = turn_dict["to"]
@@ -343,9 +366,8 @@ class GraphGameScorer(GameScorer):
                     seen.update(self.adj(current))
                     loops.append(current)
                     visited.add(current)
-                    if loop_identification(loops, False):
+                    if loop_identification(loops):
                         count_loops += 1
-                        loops.clear()
                     
                 if action['type'] == "stop":
                     if action["content"]:
@@ -375,19 +397,21 @@ class GraphGameScorer(GameScorer):
                     self.log_episode_score(METRIC_ABORTED, 0)
                     self.log_episode_score(METRIC_LOSE, 1)
 
-        exploration = (len(visited)/len(self.nodes))*100
-        efficiency = (sum(good_move)/len(good_move))*100
+        #if nominator and denominator are 0, the result is NaN 
+        exploration = (len(visited) / len(self.nodes) * 100) if len(self.nodes) else 0
+        efficiency = (sum(good_move) / len(good_move) * 100) if good_move else 0
+        bench_score = (2 * efficiency * exploration / (efficiency + exploration)) if (efficiency+exploration) else 0
         self.log_episode_score('moves', valid_moves + invalid_moves if stopped else np.NaN)
         self.log_episode_score('valid_moves', valid_moves if stopped else np.NaN)
         self.log_episode_score('invalid_moves', invalid_moves if stopped else np.NaN) 
         self.log_episode_score('stopped', int(stopped) if stopped else np.NaN)
         self.log_episode_score('turns_limit', int(turns_limit_reached) if stopped else np.NaN)
-        self.log_episode_score('loops', count_loops if stopped else np.NaN)
-        self.log_episode_score('number_visited', len(visited) if stopped else np.NaN)
+        self.log_episode_score('loops', count_loops if stopped else np.NaN )
+        self.log_episode_score('number_visited', len(visited) if stopped else np.NaN )
         self.log_episode_score('seen', len(seen) if stopped else np.NaN)
         self.log_episode_score('efficiency', efficiency  if stopped else np.NaN)
         self.log_episode_score('exploration', exploration  if stopped else np.NaN)
-        self.log_episode_score(BENCH_SCORE, (2*efficiency*exploration)/(efficiency+exploration) if stopped else np.NaN)
+        self.log_episode_score(BENCH_SCORE, bench_score if stopped else np.NaN)
 
 
 class GraphGameBenchmark(GameBenchmark):

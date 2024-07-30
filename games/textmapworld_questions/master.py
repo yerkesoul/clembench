@@ -2,10 +2,11 @@ from typing import Dict, Tuple, List
 import json
 import numpy as np
 import ast
+import re
 from backends import Model, CustomResponseModel
 from clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
-from games.textmapworld_questions.utils import loop_identification, get_directions, string_available_directions, have_common_element, clear_utterance, get_nextnode_label, count_word_in_sentence
+from games.textmapworld_questions.utils import loop_identification, get_directions, string_available_directions, have_common_element, get_nextnode_label, count_word_in_sentence
 from queue import Queue
 from copy import deepcopy
 from clemgame import get_logger
@@ -41,6 +42,7 @@ class PathDescriber(Player):
         self.directions = ast.literal_eval(game_instance['Directions'])
         self.move_construction =  game_instance["Move_Construction"] 
         self.stop_construction = game_instance["Stop_Construction"]
+        self.qa_construction = game_instance["QA_Construction"]
         self.nodes = ast.literal_eval(game_instance['Graph_Nodes'])
         self.edges = ast.literal_eval(game_instance['Graph_Edges'])
         self.positive_answer = game_instance["Player2_positive_answer"]
@@ -57,11 +59,11 @@ class PathDescriber(Player):
         self.first_question = ast.literal_eval(game_instance["First_Question_Answer"])
         self.second_question = ast.literal_eval(game_instance["Second_Question_Answer"])
         self.third_question = ast.literal_eval(game_instance["Third_Question_Answer"])
-        self.asked=0
+        self.asked = 0
+        self.reprompt_added = 0
 
 
     def check_path_answer(self, utterance: str, directions: List[str], node, saved_node) -> List[Dict]:
-        utterance = clear_utterance(utterance, self.move_construction)
         previous_direction = get_directions(node, directions, saved_node)
         previous_dirrection_changed =  string_available_directions(previous_direction) 
         previous_dirrection_no_pq = string_utils.remove_punctuation(previous_dirrection_changed)
@@ -105,17 +107,19 @@ class PathDescriber(Player):
         for message in messages[::-1]:
             if message["role"] == "user":
                 content = message["content"]
-                if content.startswith(self.move_construction): 
-                    utterance = content
+                found = re.search(self.move_construction, content, re.IGNORECASE)
+                if found: 
+                    utterance = found.group(1).lower()
                     break
-                if self.stop_construction.lower() in content.lower():
-                    utterance = content
-                    ask_questions = True
-                    break
+                stop_found = re.search(self.stop_construction, content, re.IGNORECASE)
+                if stop_found:
+                    ask_questions = True 
         if not ask_questions:
             validation =self.validate_answer(utterance)
             current_location = self.current_node
             if self.directions_next_node == None:
+                return "Game needs to be aborted"
+            if self.current_node == None:
                 return "Game needs to be aborted"
             if self.ambiguity != None:
                 current_location = self.current_node.split("_")[0] ##because if there is ambiguity, the node is saved as "Kitchen_(1,2)"
@@ -129,7 +133,6 @@ class PathDescriber(Player):
                 negative_answer = negative_answer.replace("$DIRECTIONS$", self.directions_next_node)
                 negative_answer = negative_answer.replace("$SAME_ROOM$", current_location)
                 utterance = negative_answer
-
         if ask_questions:
             self.asked += 1
             question = self.queston
@@ -140,7 +143,11 @@ class PathDescriber(Player):
             elif self.asked == 3:
                 question = question.replace("$ROOM_CATEGORY$", self.third_question[0])
             if self.asked <= 3:
-                utterance = self.question_reprompt + " " + question
+                if self.reprompt_added < 1:
+                    utterance = self.question_reprompt + " " + question
+                    self.reprompt_added += 1
+                else:
+                    utterance = question
         return utterance
 
 
@@ -158,6 +165,7 @@ class textmapworld_questions(DialogueGameMaster):
         self.game_stopped_already = False
         self.invalid_response = False
         self.limit_reached = False
+        self.asked_question = False
         self.questions_asked = 0
         self.questions_info = {}
 
@@ -171,6 +179,7 @@ class textmapworld_questions(DialogueGameMaster):
         self.ambiguity = game_instance["Ambiguity"]
         self.move_construction =  game_instance["Move_Construction"] 
         self.stop_construction = game_instance["Stop_Construction"]
+        self.qa_construction = game_instance["QA_Construction"]
 
         self.guesser = PathGuesser(self.player_models[0])
         self.describer = PathDescriber(CustomResponseModel(), game_instance)
@@ -219,6 +228,7 @@ class textmapworld_questions(DialogueGameMaster):
             self.limit_reached = True
             if self.questions_asked == 0:
                 self.log_to_self("turns_limit", str(self.max_turns))
+            return False
         
         if self.questions_asked == 3:
             self.log_to_self("questions_limit", "The describer has asked all questions")
@@ -226,30 +236,59 @@ class textmapworld_questions(DialogueGameMaster):
         
         return True
 
+    def _on_parse_response(self, player: Player, utterance: str) -> Tuple[str, bool]:
+
+        if player  == self.guesser:
+            utterance = utterance.replace("\n", "").strip()
+            if re.search(self.stop_construction, utterance, re.IGNORECASE):
+                found = re.search(self.move_construction, utterance, re.IGNORECASE)
+            elif re.search(self.move_construction, utterance, re.IGNORECASE):
+                found = re.search(self.stop_construction, utterance, re.IGNORECASE)
+            elif re.search(self.qa_construction, utterance, re.IGNORECASE):
+                found = re.search(self.qa_construction, utterance, re.IGNORECASE)
+            if found:
+                utterance = found.group()
+        return utterance, True
+    
 
     def _validate_player_response(self, player: Player, utterance: str) -> bool:
 
         if player == self.guesser:
-            count_go = count_word_in_sentence(utterance.lower(), self.move_construction.lower())
-            if count_go > 1:
+            stop_action = re.search(self.stop_construction, utterance, re.IGNORECASE)
+            move_action = re.search(self.move_construction, utterance, re.IGNORECASE)
+            if move_action and stop_action:
                 self.invalid_response = True
                 return False
-            if not utterance.startswith(self.move_construction) and not self.stop_construction.lower() in utterance.lower() and not utterance.lower().startswith("answer:"):
-                self.invalid_response = True
-                return False
-            if self.stop_construction.lower() in utterance.lower():
+            if stop_action:
                 self.game_stop = True
-            if utterance.lower().startswith("answer:"):
-                self.questions_asked+=1
-                self.questions_info["question_"+ str(self.questions_asked)] = utterance.split("Answer: ")[1]
-        
+                return True
+            count_go =  re.findall(self.move_construction, utterance, re.IGNORECASE)
+            if len(count_go) > 1:
+                self.invalid_response = True
+                return False
+            if move_action:
+                return True
+            
+            question_action = re.search(self.qa_construction, utterance, re.IGNORECASE)
+            if question_action:
+                self.questions_asked += 1
+                self.asked_question = True
+                self.questions_info["question_"+ str(self.questions_asked)] = question_action.group(1)
+                return True
+            
+            if not move_action and not stop_action and not self.asked_question:
+                self.invalid_response = True
+                return False
+            
+
         if player == self.describer:
             if utterance == "Game needs to be aborted":
                 self.invalid_response = True
                 return False
-            
+        
+        self.log_to_self("Valid format", "Continue")
         return True
-
+    
 
     def _after_add_player_response(self, player: Player, utterance: str):
         """Add the utterance to other player's history, if necessary.
@@ -268,7 +307,6 @@ class textmapworld_questions(DialogueGameMaster):
             self.add_user_message(self.guesser, utterance)
 
                 
-
 
     def _on_after_turn(self, turn_idx: int):
 
@@ -418,7 +456,10 @@ class GraphGameScorer(GameScorer):
                             answers_model.append(0)
 
         for i, val in enumerate(good_move):
-            self.log_turn_score(i, "effiencient_move", val)                
+            self.log_turn_score(i, "effiencient_move", val)  
+        if not aborted  and len(answers_model)>0:     
+            for i, val in enumerate(answers_model):
+                self.log_turn_score(i, "questions_score", val)         
         if aborted:
             self.log_episode_score(METRIC_ABORTED, 1)
             self.log_episode_score(METRIC_SUCCESS, 0)
@@ -438,11 +479,14 @@ class GraphGameScorer(GameScorer):
                     self.log_episode_score(METRIC_ABORTED, 0)
                     self.log_episode_score(METRIC_LOSE, 1)
 
-        exploration = (len(visited)/len(self.nodes))*100
-        efficiency = (sum(good_move)/len(good_move))*100
-        base_score= (2*efficiency*exploration)/(efficiency+exploration)
-        questions_score = (sum(answers_model)/len(answers_model))*100
-        harmonic_score =  3/((1/efficiency)+(1/exploration)+(1/questions_score))
+        exploration = (len(visited) / len(self.nodes) * 100) if len(self.nodes) else 0
+        efficiency = (sum(good_move) / len(good_move) * 100) if good_move else 0
+        bench_score = (2 * efficiency * exploration / (efficiency + exploration)) if (efficiency+exploration) else 0
+        questions_score = (sum(answers_model)/len(answers_model))*100  if len(answers_model) else 0
+        if efficiency == 0 or exploration == 0 or questions_score == 0:
+            harmonic_score = 0
+        else:
+            harmonic_score = 3 / ((1 / efficiency) + (1 / exploration) + (1 / questions_score))
         self.log_episode_score('moves', valid_moves + invalid_moves if stopped else np.NaN)
         self.log_episode_score('valid_moves', valid_moves if stopped else np.NaN)
         self.log_episode_score('invalid_moves', invalid_moves if stopped else np.NaN) 
@@ -453,8 +497,7 @@ class GraphGameScorer(GameScorer):
         self.log_episode_score('seen', len(seen) if stopped else np.NaN)
         self.log_episode_score('efficiency', efficiency  if stopped else np.NaN)
         self.log_episode_score('exploration', exploration  if stopped else np.NaN)
-        self.log_episode_score('base_score', base_score if stopped else np.NaN)
-        self.log_episode_score('questions_list',str(answers_model) if stopped else np.NaN)
+        self.log_episode_score('base_score', bench_score if stopped else np.NaN)
         self.log_episode_score('questions_score', questions_score if stopped else np.NaN)
         self.log_episode_score(BENCH_SCORE, harmonic_score  if stopped else np.NaN)
 

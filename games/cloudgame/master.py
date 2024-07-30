@@ -108,7 +108,6 @@ class Cloudgame(DialogueGameMaster):
                 self.aborted = True
                 self.log_to_self("Invalid word count", "Game aborted.")
                 return False
-
             # only yes or no allowed
             if answer.lower().strip(" .") not in self.allowed_words:
                 self.success = False

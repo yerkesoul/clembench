@@ -11,14 +11,20 @@ logger = clemgame.get_logger(__name__)
 "-------------------------------------------------------------------------------------------------------------"
 "°°°°°°°changeable parameters°°°°°°°"
 game_name = "textmapworld_description"
-stop_construction = "DONE"
-move_construction = "GO:"
+strict = True 
+if strict:
+    DONE_REGEX = '^DONE$'
+    MOVE_REGEX = '^GO:\s*(north|east|west|south)$'
+else:
+    DONE_REGEX = 'DONE'
+    MOVE_REGEX = 'GO:\s*(north|east|west|south)'
+    
+create_new_graphs = False 
 n = 4
 m = 4
 instance_number = 10
-ambiguity= None 
 loop_reminder = False
-max_turns_reminder = True
+max_turns_reminder = False
 experiments_details = {"small": (4,"cycle_false"), "medium": (6, "cycle_false"), "large": (8, "cycle_false"), "medium_cycle": (6, "cycle_true"), "large_cycle": (8, "cycle_true")}
 
 "°°°°°°°imported parameters°°°°°°°"
@@ -60,8 +66,8 @@ class GraphGameInstanceGenerator(GameInstanceGenerator):
                 game_instance["Prompt"] = player_a_prompt_header
                 game_instance["Player2_positive_answer"] = Player2_positive_answer
                 game_instance["Player2_negative_answer"] = Player2_negative_answer
-                game_instance["Move_Construction"] = move_construction
-                game_instance["Stop_Construction"] = stop_construction
+                game_instance["Move_Construction"] = MOVE_REGEX
+                game_instance["Stop_Construction"] = DONE_REGEX
                 game_instance["Grid_Dimension"] = "4"
                 game_instance['Graph_Nodes'] = str(changed_graph['Graph_Nodes'])
                 game_instance['Graph_Edges'] = str(changed_graph['Graph_Edges'])
@@ -70,13 +76,16 @@ class GraphGameInstanceGenerator(GameInstanceGenerator):
                 game_instance["Directions"] = str(changed_graph['Directions'])
                 game_instance["Moves"] = str(changed_graph['Moves'])
                 game_instance['Cycle'] = cycle
-                game_instance['Ambiguity'] = ambiguity
+                game_instance['Ambiguity'] = None 
                 game_instance['Game_Type'] = "named_graph"
                 game_instance["Descriptions"] = descriptions
                 game_instance["Loop_Reminder"] = loop_reminder
                 game_instance["Loop_Reminder_Text"] = reminders_file["loop_reminder"]
                 game_instance["Max_Turns_Reminder"] = max_turns_reminder
                 game_instance["Max_Turns_Reminder_Text"] = reminders_file["max_turns_reminder"]
+                game_instance["Mapping"]= str(instance['cats'])
+                game_instance["Strict"] = strict
+
 
 
 if __name__ == '__main__':

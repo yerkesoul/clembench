@@ -89,14 +89,9 @@ def have_common_element(str1, str2):
     return any(match in common_elements for match in common_matches)
 
 
-def clear_utterance(utterance, construction):
-    utterance = utterance.replace(construction, "")
-    utterance = string_utils.remove_punctuation(utterance)
-    return utterance
 
 def get_nextnode_label(moves, node, utterance, move_construction):
     next_label=None
-    utterance = clear_utterance(utterance, move_construction)
     utterance = utterance.strip()
     for move in moves:
         if move["node"]==node:
@@ -124,19 +119,11 @@ def ambiguity_move(old_one, new_one, mapping, moves, move_type):
                                             return label, s[1]
                                         
 
-def loop_identification(visited_rooms, double_cycle):
-    flag_loop = False
-    if not double_cycle:
-        if len(visited_rooms) >= 5:
-            if visited_rooms[-1] == visited_rooms[-5] and visited_rooms[-2] == visited_rooms[-4] and visited_rooms[-3] == visited_rooms[-5]:
-                flag_loop = True
-    elif double_cycle:
-        if len(visited_rooms) >= 10:
-            l1, l2=np.array_split(visited_rooms[-10:] , 2)
-            if all(l1==l2):
-                if l1[-1] == l1[-5] and l1[-2] == l1[-4] and l1[-3] == l1[-5]:
-                    flag_loop = True
-    return flag_loop
+def loop_identification(visited_nodes):
+    if len(visited_nodes) >= 4:
+        if len(set(visited_nodes[-4:])) < 3:
+            return True
+    return False
 
 
 def calculate_distance(nodes, edges, node1, node2):
